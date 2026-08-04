@@ -1,3 +1,4 @@
+import React from "react";
 import { ImageResponse } from "next/og";
 import { createClient } from "@supabase/supabase-js";
 
@@ -12,16 +13,14 @@ export async function GET() {
     if (data?.hero_image_url) artwork = data.hero_image_url;
   } catch {}
 
-  return new ImageResponse(
-    <div style={{
-      width: "100%", height: "100%", display: "flex", position: "relative",
-      backgroundColor: "#090909", overflow: "hidden"
-    }}>
-      <img src={artwork} alt="" width="512" height="512" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 42%" }}/>
-      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 32, background: "linear-gradient(180deg, transparent 48%, rgba(0,0,0,.88))" }}>
-        <div style={{ color: "#ff7a00", fontSize: 40, fontWeight: 900, letterSpacing: 2, textShadow: "0 4px 18px #000" }}>FIRESTARTER 2026</div>
-      </div>
-    </div>,
-    { width: 512, height: 512, headers: { "Cache-Control": "public, max-age=0, s-maxage=3600" } }
+  const image = React.createElement("div", {
+    style: { width: "100%", height: "100%", display: "flex", position: "relative", backgroundColor: "#090909", overflow: "hidden" }
+  },
+    React.createElement("img", { src: artwork, alt: "", width: 512, height: 512, style: { width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 42%" } }),
+    React.createElement("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 32, background: "linear-gradient(180deg, transparent 48%, rgba(0,0,0,.88))" } },
+      React.createElement("div", { style: { color: "#ff7a00", fontSize: 40, fontWeight: 900, letterSpacing: 2, textShadow: "0 4px 18px #000" } }, "FIRESTARTER 2026")
+    )
   );
+
+  return new ImageResponse(image, { width: 512, height: 512, headers: { "Cache-Control": "public, max-age=0, s-maxage=3600" } });
 }
