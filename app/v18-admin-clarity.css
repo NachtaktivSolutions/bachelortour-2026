@@ -1,0 +1,77 @@
+/* Firestarter V18: übersichtliche Admin- und Ortsverwaltung */
+
+/* Gemeinsame Seitenstruktur */
+.admin-grid{align-items:start;gap:18px}
+.admin-card{position:relative;overflow:hidden;border:1px solid #303030;background:linear-gradient(180deg,#181818,#121212);box-shadow:0 12px 30px rgba(0,0,0,.2)}
+.admin-card>svg:first-child{width:24px;height:24px;color:var(--accent);margin-bottom:4px}
+.admin-card>h2,.admin-card h2{display:flex;align-items:center;gap:10px;margin:0 0 16px;font-size:1.25rem}
+.admin-card input,.admin-card textarea,.admin-card select{background:#0d0d0d;border-color:#343434}
+.admin-card label{display:grid;gap:7px;color:#bdbdbd;font-size:.9rem}
+.admin-card .primary-button{margin-top:4px;min-height:48px}
+.admin-card.admin-wide{grid-column:1/-1;padding:22px}
+
+/* Die vier Hauptbereiche im Admin visuell trennen */
+.admin-grid>form.admin-card:nth-of-type(1){border-top:3px solid #ff7a00}
+.admin-grid>form.admin-card:nth-of-type(2){border-top:3px solid #ffb020}
+.admin-grid>form.admin-card:nth-of-type(3){border-top:3px solid #ef4444}
+.admin-grid>form.admin-card:nth-of-type(4){border-top:3px solid #7c3aed}
+.admin-grid>form.admin-card:nth-of-type(1)::before,
+.admin-grid>form.admin-card:nth-of-type(2)::before,
+.admin-grid>form.admin-card:nth-of-type(3)::before,
+.admin-grid>form.admin-card:nth-of-type(4)::before{display:block;font-size:.72rem;letter-spacing:.16em;font-weight:800;color:#8f8f8f;margin-bottom:7px}
+.admin-grid>form.admin-card:nth-of-type(1)::before{content:"INHALT"}
+.admin-grid>form.admin-card:nth-of-type(2)::before{content:"PROGRAMM"}
+.admin-grid>form.admin-card:nth-of-type(3)::before{content:"BENACHRICHTIGUNG"}
+.admin-grid>form.admin-card:nth-of-type(4)::before{content:"TOUR-EINSTELLUNGEN"}
+
+/* Verwaltungslisten */
+.admin-content-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid #292929}
+.admin-content-row:last-child{border-bottom:0}
+.admin-content-row>div:first-child{display:grid;gap:4px;min-width:0}
+.admin-content-row strong{font-size:1rem}
+.admin-content-row small{color:#999;white-space:normal;overflow-wrap:anywhere}
+.admin-row-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+.admin-row-actions button,.admin-row-actions a{min-height:40px;padding:9px 12px;font-size:.85rem}
+
+/* Hotels & Wissenswertes: zuerst Erstellen, darunter klar getrennte Verwaltung */
+.secret-admin-grid{grid-template-columns:repeat(12,minmax(0,1fr));gap:18px}
+.secret-admin-grid>form:nth-of-type(1){grid-column:span 4;border-top:3px solid #ff7a00}
+.secret-admin-grid>form:nth-of-type(2){grid-column:span 4;border-top:3px solid #22c55e}
+.secret-admin-grid>form:nth-of-type(3){grid-column:span 4;border-top:3px solid #38bdf8}
+.secret-admin-grid>section{grid-column:1/-1}
+.secret-admin-grid>form::before{display:block;font-size:.72rem;letter-spacing:.16em;font-weight:800;color:#8f8f8f;margin-bottom:7px}
+.secret-admin-grid>form:nth-of-type(1)::before{content:"PROGRAMM"}
+.secret-admin-grid>form:nth-of-type(2)::before{content:"UNTERKUNFT"}
+.secret-admin-grid>form:nth-of-type(3)::before{content:"GEHEIME TIPPS"}
+.secret-admin-grid .admin-wide h2{padding-bottom:14px;border-bottom:1px solid #2b2b2b}
+.secret-admin-grid .admin-content-row{border:1px solid #2c2c2c;border-radius:14px;padding:14px 16px;margin-top:10px;background:#101010}
+.secret-admin-grid .admin-content-row+ .admin-content-row{margin-top:10px}
+
+/* Sichtbar/verborgen schneller erfassbar */
+.secret-admin-grid .secondary-button{background:#202020}
+.secret-admin-grid .danger-button{background:#401616}
+
+/* Statusmeldung bleibt beim Arbeiten sichtbar */
+.page-heading+.status,.page-heading~.status{position:sticky;top:calc(70px + env(safe-area-inset-top));z-index:20;box-shadow:0 8px 20px rgba(0,0,0,.35)}
+
+@media(min-width:1000px){
+  .admin-grid:not(.secret-admin-grid){grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+@media(max-width:999px){
+  .secret-admin-grid{grid-template-columns:1fr}
+  .secret-admin-grid>form:nth-of-type(1),
+  .secret-admin-grid>form:nth-of-type(2),
+  .secret-admin-grid>form:nth-of-type(3),
+  .secret-admin-grid>section{grid-column:1}
+}
+
+@media(max-width:699px){
+  .admin-grid{display:grid;grid-template-columns:1fr;gap:14px}
+  .admin-card,.admin-card.admin-wide{grid-column:1!important;padding:17px}
+  .admin-card>h2,.admin-card h2{font-size:1.12rem}
+  .admin-content-row{grid-template-columns:1fr;gap:12px}
+  .admin-row-actions{justify-content:flex-start}
+  .admin-row-actions button,.admin-row-actions a{flex:1 1 auto;justify-content:center}
+  .secret-admin-grid .admin-content-row{padding:14px}
+}
