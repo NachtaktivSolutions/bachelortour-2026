@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
-import { Home, Map, MessageCircle, Images, Users, Shield, LogOut, CalendarCog, MapPinned, Luggage, ListChecks } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Home, Map, MessageCircle, Images, Users, Shield, LogOut, CalendarCog, MapPinned, Luggage, ListChecks, LayoutDashboard, ChevronDown } from "lucide-react";
 import { useApp } from "./app-provider";
 import { createClient } from "@/lib/supabase/client";
 
@@ -15,12 +15,21 @@ const nav = [
   { href: "/members", label: "Bachelor", icon: Users }
 ];
 
+const adminLinks = [
+  { href: "/admin", label: "Admin-Zentrale", description: "Neuigkeiten, Push, Tour und Mitglieder", icon: LayoutDashboard },
+  { href: "/admin/events", label: "Programm verwalten", description: "Programmpunkte anlegen und bearbeiten", icon: CalendarCog },
+  { href: "/admin/places", label: "Hotels & Wissenswertes", description: "Geheime Orte und Unterkunft steuern", icon: MapPinned },
+  { href: "/admin/packing-list", label: "Packliste verwalten", description: "Rubriken, Gegenstände und Freigabe", icon: ListChecks }
+];
+
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { profile } = useApp();
   const [unreadChat, setUnreadChat] = useState(0);
   const [packingVisible,setPackingVisible]=useState(false);
+  const [adminMenuOpen,setAdminMenuOpen]=useState(false);
+  const adminMenuRef=useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
   const loadUnread = useCallback(async () => {
@@ -46,6 +55,17 @@ export function Shell({ children }: { children: React.ReactNode }) {
     return () => { window.removeEventListener("chat-read", onRead); supabase.removeChannel(channel); };
   }, [loadUnread,loadPacking,profile?.id,supabase]);
 
+  useEffect(()=>{setAdminMenuOpen(false)},[pathname]);
+
+  useEffect(()=>{
+    if(!adminMenuOpen)return;
+    const close=(event:MouseEvent)=>{if(adminMenuRef.current&&!adminMenuRef.current.contains(event.target as Node))setAdminMenuOpen(false)};
+    const escape=(event:KeyboardEvent)=>{if(event.key==="Escape")setAdminMenuOpen(false)};
+    document.addEventListener("mousedown",close);
+    document.addEventListener("keydown",escape);
+    return()=>{document.removeEventListener("mousedown",close);document.removeEventListener("keydown",escape)};
+  },[adminMenuOpen]);
+
   const logout = async () => { await supabase.auth.signOut(); router.replace("/login"); };
 
   return <div className="app-shell">
@@ -53,12 +73,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <Link href="/" className="brand-lockup"><img className="brand-tour-icon" src="/api/branding/icon" alt="Firestarter"/><div><span className="eyebrow">FIRESTARTER 26</span><strong>Bachelortour 2026</strong></div></Link>
       <div className="top-actions">
         {(packingVisible||profile?.is_admin)&&<Link className="icon-button" href="/packing-list" aria-label="Packliste" title="Packliste"><Luggage size={20}/></Link>}
-        {profile?.is_admin && <>
-          <Link className="icon-button admin-button" href="/admin/packing-list" aria-label="Packliste verwalten" title="Packliste verwalten"><ListChecks size={20}/></Link>
-          <Link className="icon-button admin-button" href="/admin/places" aria-label="Hotels und Wissenswertes" title="Hotels und Wissenswertes"><MapPinned size={20}/></Link>
-          <Link className="icon-button admin-button" href="/admin/events" aria-label="Events verwalten" title="Events verwalten"><CalendarCog size={20}/></Link>
-          <Link className="icon-button admin-button" href="/admin" aria-label="Adminbereich" title="Adminbereich"><Shield size={20}/></Link>
-        </>}
+        {profile?.is_admin&&<div className="admin-menu-wrap" ref={adminMenuRef}>
+          <button type="button" className={`icon-button admin-button admin-menu-trigger ${adminMenuOpen?"active":""}`} onClick={()=>setAdminMenuOpen(value=>!value)} aria-label="Admin-Menü" aria-expanded={adminMenuOpen} title="Admin-Menü"><Shield size={20}/><ChevronDown className="admin-menu-chevron" size={12}/></button>
+          {adminMenuOpen&&<div className="admin-dropdown" role="menu">
+            <div className="admin-dropdown-head"><span className="eyebrow">KOMMANDOZENTRALE</span><strong>Admin-Menü</strong></div>
+            {adminLinks.map(({href,label,description,icon:Icon})=><Link key={href} href={href} className={pathname===href?"active":""} role="menuitem"><span className="admin-dropdown-icon"><Icon size={20}/></span><span><strong>{label}</strong><small>{description}</small></span></Link>)}
+          </div>}
+        </div>}
         <button className="icon-button logout-button" onClick={logout} aria-label="Abmelden"><LogOut size={19}/></button>
         <Link href="/profile" className="avatar" aria-label="Mein Profil" title="Mein Profil">{profile?.avatar_url?<img src={profile.avatar_url} alt=""/>:<span>{profile?.name?.slice(0,1)??"?"}</span>}</Link>
       </div>
