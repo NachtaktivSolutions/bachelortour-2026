@@ -1,10 +1,41 @@
+const CACHE_NAME="firestarter-v24";
+const OFFLINE_ROUTES=["/","/program","/packing-list","/tour-tools","/members"];
+
+self.addEventListener("install",event=>{
+  event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(OFFLINE_ROUTES)).catch(()=>undefined));
+  self.skipWaiting();
+});
+
+self.addEventListener("activate",event=>{
+  event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE_NAME).map(key=>caches.delete(key)))));
+  self.clients.claim();
+});
+
+self.addEventListener("fetch",event=>{
+  const request=event.request;
+  if(request.method!=="GET")return;
+  const url=new URL(request.url);
+  if(url.origin!==self.location.origin)return;
+
+  if(request.mode==="navigate"){
+    event.respondWith(fetch(request).then(response=>{
+      const copy=response.clone();caches.open(CACHE_NAME).then(cache=>cache.put(request,copy));return response;
+    }).catch(async()=>await caches.match(request)||await caches.match("/")||Response.error()));
+    return;
+  }
+
+  if(url.pathname.startsWith("/_next/static/")||url.pathname.startsWith("/api/branding/")||/\.(css|js|png|jpg|jpeg|webp|svg|woff2?)$/i.test(url.pathname)){
+    event.respondWith(caches.match(request).then(cached=>cached||fetch(request).then(response=>{const copy=response.clone();caches.open(CACHE_NAME).then(cache=>cache.put(request,copy));return response;})));
+  }
+});
+
 self.addEventListener("push", event => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch { data = { body: event.data?.text() }; }
   event.waitUntil(self.registration.showNotification(data.title || "Firestarter 2026", {
     body: data.body || "Es gibt Neuigkeiten.",
-    icon: "/api/branding/icon?v=16",
-    badge: "/api/branding/icon?v=16",
+    icon: "/api/branding/icon?v=24",
+    badge: "/api/branding/icon?v=24",
     image: data.image || undefined,
     tag: data.tag || "firestarter-2026",
     renotify: true,
