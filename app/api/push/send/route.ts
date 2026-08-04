@@ -20,20 +20,10 @@ export async function POST(req: NextRequest) {
 
     const vapidPublic = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
     const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
-    const vapidSubject =
-      process.env.VAPID_SUBJECT ||
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      "https://bachelortour-2026.vercel.app";
-
-    if (!vapidPublic || !vapidPrivate) {
-      return NextResponse.json(
-        { error: "Push ist noch nicht vollständig eingerichtet: VAPID-Schlüssel fehlen." },
-        { status: 500 }
-      );
-    }
+    const vapidSubject = process.env.VAPID_SUBJECT || process.env.NEXT_PUBLIC_SITE_URL || "https://bachelortour-2026.vercel.app";
+    if (!vapidPublic || !vapidPrivate) return NextResponse.json({ error: "Push ist noch nicht vollständig eingerichtet: VAPID-Schlüssel fehlen." }, { status: 500 });
 
     webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate);
-
     const payload = await req.json();
     const { data: subscriptions } = await admin.from("push_subscriptions").select("*");
     let sent = 0;
@@ -42,13 +32,13 @@ export async function POST(req: NextRequest) {
         await webpush.sendNotification(row.subscription, JSON.stringify({
           title: payload.title,
           body: payload.body,
-          url: payload.url || "/"
-        }));
+          url: payload.url || "/",
+          tag: payload.tag || `firestarter-${Date.now()}`,
+          timestamp: Date.now()
+        }), { TTL: 86400, urgency: "high" });
         sent++;
       } catch (error: any) {
-        if (error?.statusCode === 404 || error?.statusCode === 410) {
-          await admin.from("push_subscriptions").delete().eq("id", row.id);
-        }
+        if (error?.statusCode === 404 || error?.statusCode === 410) await admin.from("push_subscriptions").delete().eq("id", row.id);
       }
     }));
     return NextResponse.json({ sent });
