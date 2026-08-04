@@ -24,19 +24,47 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   const loadUnread = useCallback(async () => {
     if (!profile) return;
-    if (pathname.startsWith("/chat")) { setUnreadChat(0); return; }
-    const since = profile.chat_last_read_at || "1970-01-01T00:00:00.000Z";
-    const { count } = await supabase.from("chat_messages").select("id", { count: "exact", head: true }).neq("sender_id", profile.id).gt("created_at", since);
+    if (pathname.startsWith("/chat")) {
+      setUnreadChat(0);
+      return;
+    }
+
+    // Den Lesestand immer frisch aus der Datenbank holen. Der Profilwert im
+    // App-Kontext kann nach dem Öffnen des Chats noch veraltet sein.
+    const { data: freshProfile } = await supabase
+      .from("profiles")
+      .select("chat_last_read_at")
+      .eq("id", profile.id)
+      .maybeSingle();
+
+    const since = freshProfile?.chat_last_read_at || profile.chat_last_read_at || "1970-01-01T00:00:00.000Z";
+    const { count } = await supabase
+      .from("chat_messages")
+      .select("id", { count: "exact", head: true })
+      .neq("sender_id", profile.id)
+      .gt("created_at", since);
+
     setUnreadChat(count || 0);
   }, [pathname, profile, supabase]);
 
   useEffect(() => {
     loadUnread();
-    const channel = supabase.channel("chat-unread-badge").on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, loadUnread).subscribe();
-    const onRead = () => setUnreadChat(0);
+    const channel = supabase
+      .channel("chat-unread-badge")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, loadUnread)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${profile?.id}` }, loadUnread)
+      .subscribe();
+
+    const onRead = () => {
+      setUnreadChat(0);
+      loadUnread();
+    };
     window.addEventListener("chat-read", onRead);
-    return () => { window.removeEventListener("chat-read", onRead); supabase.removeChannel(channel); };
-  }, [loadUnread, supabase]);
+    return () => {
+      window.removeEventListener("chat-read", onRead);
+      supabase.removeChannel(channel);
+    };
+  }, [loadUnread, profile?.id, supabase]);
 
   const logout = async () => { await supabase.auth.signOut(); router.replace("/login"); };
 
