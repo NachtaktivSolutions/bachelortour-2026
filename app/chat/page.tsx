@@ -7,6 +7,7 @@ import { Shell } from "@/components/shell";
 import { EmojiPicker } from "@/components/emoji-picker";
 import { useApp } from "@/components/app-provider";
 import { createClient } from "@/lib/supabase/client";
+import { optimizeImage, validateImageFile } from "@/lib/image-upload";
 import type { ChatMessage } from "@/lib/types";
 
 type ChatSettings = { chat_locked:boolean; pinned_chat_message_id:string|null };
@@ -16,6 +17,7 @@ export default function ChatPage() {
   const [messages,setMessages]=useState<ChatMessage[]>([]);
   const [settings,setSettings]=useState<ChatSettings>({chat_locked:false,pinned_chat_message_id:null});
   const [uploading,setUploading]=useState(false);
+  const [uploadStatus,setUploadStatus]=useState("");
   const [emojiOpen,setEmojiOpen]=useState(false);
   const [text,setText]=useState("");
   const [initialScrollDone,setInitialScrollDone]=useState(false);
@@ -68,16 +70,20 @@ export default function ChatPage() {
   }
 
   async function sendImage(e:ChangeEvent<HTMLInputElement>){
-    const file=e.target.files?.[0];if(!file||!profile||settings.chat_locked&&!profile.is_admin)return;
-    setUploading(true);
-    const path=`${profile.id}/${Date.now()}-${file.name.replace(/\s+/g,"-")}`;
-    const up=await supabase.storage.from("photos").upload(path,file);
-    if(!up.error){
+    const original=e.target.files?.[0];if(!original||!profile||settings.chat_locked&&!profile.is_admin)return;
+    setUploading(true);setStatus("");
+    try{
+      validateImageFile(original);
+      const file=await optimizeImage(original,setUploadStatus);
+      setUploadStatus("Foto wird hochgeladen …");
+      const path=`${profile.id}/${Date.now()}-${file.name.replace(/\s+/g,"-")}`;
+      const up=await supabase.storage.from("photos").upload(path,file,{cacheControl:"31536000",contentType:"image/jpeg"});
+      if(up.error)throw up.error;
       const url=supabase.storage.from("photos").getPublicUrl(path).data.publicUrl;
       const {error}=await supabase.from("chat_messages").insert({body:"📷 Foto",image_url:url,sender_id:profile.id});
-      if(error)setStatus(error.message);
-    } else setStatus(up.error.message);
-    setUploading(false);e.target.value="";
+      if(error)throw error;
+    }catch(error){setStatus(error instanceof Error?error.message:"Foto konnte nicht hochgeladen werden.")}
+    finally{setUploading(false);setUploadStatus("");e.target.value=""}
   }
 
   async function removeMessages(ids:string[]){
@@ -135,13 +141,13 @@ export default function ChatPage() {
         return <div key={m.id} className={`message-row ${own?"own":""} ${isSelected?"selected":""}`} onClick={()=>selectionMode&&toggleSelected(m.id)}>
           {selectionMode&&<button type="button" className="message-select" aria-label="Nachricht auswählen">{isSelected?"✓":""}</button>}
           {!own&&<div className="avatar chat-avatar">{m.profiles?.avatar_url?<img src={m.profiles.avatar_url} alt=""/>:<span>{m.profiles?.name?.[0]||"?"}</span>}</div>}
-          <div className={`message ${own?"own":""}`}><strong>{own?"Du":m.profiles?.name}</strong>{m.image_url&&<img className="chat-image" src={m.image_url} alt="Chatfoto"/>}{m.body&&m.body!=="📷 Foto"&&<p>{m.body}</p>}<small>{new Intl.DateTimeFormat("de-DE",{timeZone:"Europe/Berlin",hour:"2-digit",minute:"2-digit"}).format(new Date(m.created_at))}</small>
+          <div className={`message ${own?"own":""}`}><strong>{own?"Du":m.profiles?.name}</strong>{m.image_url&&<img className="chat-image" src={m.image_url} alt="Chatfoto" loading="lazy" decoding="async"/>}{m.body&&m.body!=="📷 Foto"&&<p>{m.body}</p>}<small>{new Intl.DateTimeFormat("de-DE",{timeZone:"Europe/Berlin",hour:"2-digit",minute:"2-digit"}).format(new Date(m.created_at))}</small>
             {profile?.is_admin&&!selectionMode&&<div className="message-admin-actions"><button type="button" title="Anpinnen" onClick={event=>{event.stopPropagation();pinMessage(m.id)}} className={settings.pinned_chat_message_id===m.id?"active":""}><Pin/></button><button type="button" title="Löschen" onClick={event=>{event.stopPropagation();removeMessages([m.id])}}><Trash2/></button></div>}
           </div>
         </div>})}</div>
       {selectionMode&&selected.size>0&&<div className="bulk-chat-actions"><strong>{selected.size} ausgewählt</strong><button onClick={()=>removeMessages(Array.from(selected))}><Trash2/>Auswahl löschen</button></div>}
       {emojiOpen&&<EmojiPicker onPick={emoji=>setText(t=>t+emoji)}/>} 
-      <form className="chat-composer" onSubmit={send}><label className={`composer-image ${lockedForUser?"disabled":""}`}><ImagePlus/><input type="file" accept="image/*" capture="environment" onChange={sendImage} disabled={lockedForUser}/></label><button type="button" className="composer-emoji" onClick={()=>setEmojiOpen(v=>!v)} disabled={lockedForUser}><Smile/></button><input value={text} onChange={e=>setText(e.target.value)} placeholder={lockedForUser?"Chat ist aktuell gesperrt":uploading?"Foto wird hochgeladen …":"Nachricht schreiben …"} autoComplete="off" disabled={uploading||lockedForUser}/><button aria-label="Senden" disabled={lockedForUser}><Send/></button></form>
+      <form className="chat-composer" onSubmit={send}><label className={`composer-image ${lockedForUser?"disabled":""}`}><ImagePlus/><input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif" capture="environment" onChange={sendImage} disabled={lockedForUser}/></label><button type="button" className="composer-emoji" onClick={()=>setEmojiOpen(v=>!v)} disabled={lockedForUser}><Smile/></button><input value={text} onChange={e=>setText(e.target.value)} placeholder={lockedForUser?"Chat ist aktuell gesperrt":uploading?(uploadStatus||"Foto wird vorbereitet …"):"Nachricht schreiben …"} autoComplete="off" disabled={uploading||lockedForUser}/><button aria-label="Senden" disabled={lockedForUser||uploading}><Send/></button></form>
     </div>
   </Shell></AuthGate>;
 }
