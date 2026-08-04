@@ -37,10 +37,10 @@ export function ImageCropper({ file, aspect = 1, round = false, title = "Bild zu
       const scale = baseScale * zoom;
       const drawWidth = image.naturalWidth * scale;
       const drawHeight = image.naturalHeight * scale;
-      const maxX = Math.max(0, drawWidth - outWidth);
-      const maxY = Math.max(0, drawHeight - outHeight);
-      const drawX = -(maxX * x / 100);
-      const drawY = -(maxY * y / 100);
+      const overflowX = Math.max(0, drawWidth - outWidth);
+      const overflowY = Math.max(0, drawHeight - outHeight);
+      const drawX = -(overflowX * x / 100);
+      const drawY = -(overflowY * y / 100);
       ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
 
       const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error("Bild konnte nicht erzeugt werden.")), "image/jpeg", .9));
@@ -53,15 +53,30 @@ export function ImageCropper({ file, aspect = 1, round = false, title = "Bild zu
 
   return <div className="cropper-backdrop" onClick={onCancel}>
     <section className="cropper-card" onClick={event => event.stopPropagation()}>
-      <button className="modal-close" onClick={onCancel}><X /></button>
+      <button type="button" className="modal-close" onClick={onCancel}><X /></button>
       <div className="cropper-title"><Crop /><div><span className="eyebrow">BILDAUSSCHNITT</span><h2>{title}</h2></div></div>
       <div className={`cropper-stage ${round ? "round" : ""}`} style={{ aspectRatio: String(aspect) }}>
-        <img src={sourceUrl} alt="Vorschau" style={{ transform: `scale(${zoom})`, objectPosition: `${x}% ${y}%` }} />
+        <img
+          src={sourceUrl}
+          alt="Vorschau"
+          draggable={false}
+          style={{
+            position: "absolute",
+            width: "100%",
+            height: "100%",
+            inset: 0,
+            objectFit: "cover",
+            objectPosition: `${x}% ${y}%`,
+            transform: `scale(${zoom})`,
+            transformOrigin: `${x}% ${y}%`,
+            transition: "transform 80ms linear, object-position 80ms linear"
+          }}
+        />
       </div>
-      <label>Zoom<input type="range" min="1" max="3" step="0.01" value={zoom} onChange={e => setZoom(Number(e.target.value))} /></label>
+      <label>Zoom <strong>{Math.round(zoom * 100)} %</strong><input type="range" min="1" max="3" step="0.01" value={zoom} onChange={e => setZoom(Number(e.target.value))} /></label>
       <label>Horizontal positionieren<input type="range" min="0" max="100" value={x} onChange={e => setX(Number(e.target.value))} /></label>
       <label>Vertikal positionieren<input type="range" min="0" max="100" value={y} onChange={e => setY(Number(e.target.value))} /></label>
-      <div className="cropper-actions"><button className="secondary-button" onClick={onCancel}>Abbrechen</button><button className="primary-button" onClick={finish} disabled={busy}>{busy ? "Wird zugeschnitten …" : "Ausschnitt übernehmen"}</button></div>
+      <div className="cropper-actions"><button type="button" className="secondary-button" onClick={onCancel}>Abbrechen</button><button type="button" className="primary-button" onClick={finish} disabled={busy}>{busy ? "Wird zugeschnitten …" : "Ausschnitt übernehmen"}</button></div>
     </section>
   </div>;
 }
