@@ -1,7 +1,8 @@
 /* Firestarter V17: einheitliche Aktionsicons und stabiler Chat */
 .compact-round-action{flex:0 0 46px;width:46px;height:46px;padding:0;border:0;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:#fff}
 .compact-round-action svg,.icon-only-actions a svg{width:21px;height:21px}
-.icon-only-actions{display:flex;align-items:center;gap:9px;margin-top:14px}
+.knowledge-card{position:relative;padding-right:78px}
+.icon-only-actions{position:absolute;right:18px;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:flex-end;gap:9px;margin:0}
 .icon-only-actions a{width:44px;height:44px;padding:0!important;border-radius:50%!important;display:grid!important;place-items:center;background:#242424;color:#fff;border:1px solid #383838}
 .icon-only-actions a:hover{border-color:var(--accent);color:var(--accent)}
 .hotel-card{grid-template-columns:minmax(0,1fr) 46px;align-items:center}
@@ -19,6 +20,8 @@
   .chat-page-shell{height:calc(100dvh - 154px - var(--safe-bottom));min-height:360px}
   .chat-heading p{display:none}
   .chat-list .message{max-width:82%}
+  .knowledge-card{padding-right:70px}
+  .icon-only-actions{right:14px}
 }
 
 @supports not (height:100dvh){
