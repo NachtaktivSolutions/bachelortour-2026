@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Map, MessageCircle, Images, Users, Shield, LogOut } from "lucide-react";
+import { Home, Map, MessageCircle, Images, Users, Shield, LogOut, CalendarCog } from "lucide-react";
 import { useApp } from "./app-provider";
 import { createClient } from "@/lib/supabase/client";
 
@@ -32,9 +32,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <div><span className="eyebrow">FIRESTARTER 26</span><strong>Bachelortour 2026</strong></div>
         </Link>
         <div className="top-actions">
-          {profile?.is_admin && (
-            <Link className="icon-button admin-button" href="/admin" aria-label="Adminbereich"><Shield size={20} /></Link>
-          )}
+          {profile?.is_admin && <>
+            <Link className="icon-button admin-button" href="/admin/events" aria-label="Events verwalten" title="Events verwalten"><CalendarCog size={20} /></Link>
+            <Link className="icon-button admin-button" href="/admin" aria-label="Adminbereich" title="Adminbereich"><Shield size={20} /></Link>
+          </>}
           <button className="icon-button logout-button" onClick={logout} aria-label="Abmelden"><LogOut size={19} /></button>
           <Link href="/profile" className="avatar" aria-label="Mein Profil" title="Mein Profil">
             {profile?.avatar_url ? <img src={profile.avatar_url} alt="" /> : <span>{profile?.name?.slice(0,1) ?? "?"}</span>}
