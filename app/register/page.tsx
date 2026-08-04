@@ -22,6 +22,8 @@ export default function RegisterPage() {
     const lastName = String(form.get("last_name")).trim();
     const name = `${firstName} ${lastName}`.trim();
     const phone = String(form.get("phone")).trim();
+    const clothingSize = String(form.get("clothing_size")).trim();
+    const homeAddress = String(form.get("home_address")).trim();
     const email = String(form.get("email")).trim();
     const password = String(form.get("password"));
 
@@ -41,6 +43,14 @@ export default function RegisterPage() {
 
     if (data.session) {
       await supabase.from("profiles").update({ first_name: firstName, last_name: lastName, name, phone }).eq("id", data.user.id);
+      const { error: privateError } = await supabase.from("member_private_details").upsert({
+        user_id: data.user.id,
+        clothing_size: clothingSize || null,
+        home_address: homeAddress || null,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "user_id" });
+      if (privateError) { setError(`Account wurde erstellt, aber die Zusatzdaten konnten nicht gespeichert werden: ${privateError.message}`); setBusy(false); return; }
+
       const file = form.get("avatar");
       if (file instanceof File && file.size > 0) {
         const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
@@ -54,7 +64,7 @@ export default function RegisterPage() {
       router.replace("/"); router.refresh(); return;
     }
 
-    setInfo("Account erstellt. Bitte bestätige zunächst die E-Mail und melde dich danach an.");
+    setInfo("Account erstellt. Bitte bestätige zunächst die E-Mail und melde dich danach an. Kleidergröße und Anschrift kannst du anschließend im Profil ergänzen.");
     setBusy(false);
   }
 
@@ -65,6 +75,9 @@ export default function RegisterPage() {
       <div className="two-cols auth-name-fields"><input name="first_name" autoComplete="given-name" placeholder="Vorname" required/><input name="last_name" autoComplete="family-name" placeholder="Nachname" required/></div>
       <input name="email" type="email" autoComplete="email" placeholder="E-Mail-Adresse" required/>
       <input name="phone" type="tel" autoComplete="tel" placeholder="Handynummer" required/>
+      <select name="clothing_size" required defaultValue=""><option value="" disabled>Kleidergröße auswählen</option><option>XS</option><option>S</option><option>M</option><option>L</option><option>XL</option><option>XXL</option><option>3XL</option><option>4XL</option><option value="Sonstige">Sonstige</option></select>
+      <textarea name="home_address" autoComplete="street-address" placeholder="Wohnanschrift: Straße, Hausnummer, PLZ und Ort" required/>
+      <small className="private-data-note">Kleidergröße und Wohnanschrift sind ausschließlich für Admins sichtbar.</small>
       <input name="password" type="password" autoComplete="new-password" placeholder="Passwort" required minLength={6}/>
       <input name="password2" type="password" autoComplete="new-password" placeholder="Passwort wiederholen" required minLength={6}/>
       {error&&<div className="error">{error}</div>}{info&&<div className="status">{info}</div>}
