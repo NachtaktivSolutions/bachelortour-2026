@@ -22,8 +22,8 @@ export default function MapPage() {
   const load = useCallback(async () => {
     setError("");
     const [pinResult, programResult, memberResult] = await Promise.all([
-      supabase.from("map_pins").select("*").order("starts_at"),
-      supabase.from("program_items").select("*").order("starts_at"),
+      supabase.from("map_pins").select("*").or(`ends_at.is.null,ends_at.gte.${new Date().toISOString()}`).order("starts_at"),
+      supabase.from("program_items").select("*").or(`ends_at.is.null,ends_at.gte.${new Date().toISOString()}`).order("starts_at"),
       supabase.from("profiles").select("*").eq("share_location", true)
     ]);
 

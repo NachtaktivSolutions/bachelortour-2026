@@ -32,6 +32,7 @@ export type ProgramItem = {
   latitude: number | null;
   longitude: number | null;
   starts_at: string;
+  ends_at: string | null;
   created_at: string;
 };
 
@@ -82,5 +83,6 @@ export type MapPin = {
   latitude: number;
   longitude: number;
   starts_at: string | null;
+  ends_at: string | null;
   created_at: string;
 };

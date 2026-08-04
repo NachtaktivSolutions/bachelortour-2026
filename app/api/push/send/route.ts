@@ -18,11 +18,21 @@ export async function POST(req: NextRequest) {
     const { data: profile } = await admin.from("profiles").select("is_admin").eq("id", user.id).single();
     if (!profile?.is_admin) return NextResponse.json({ error: "Nur Admins dürfen Push senden." }, { status: 403 });
 
-    webpush.setVapidDetails(
-      process.env.VAPID_SUBJECT!,
-      process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-      process.env.VAPID_PRIVATE_KEY!
-    );
+    const vapidPublic = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
+    const vapidSubject =
+      process.env.VAPID_SUBJECT ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "https://bachelortour-2026.vercel.app";
+
+    if (!vapidPublic || !vapidPrivate) {
+      return NextResponse.json(
+        { error: "Push ist noch nicht vollständig eingerichtet: VAPID-Schlüssel fehlen." },
+        { status: 500 }
+      );
+    }
+
+    webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate);
 
     const payload = await req.json();
     const { data: subscriptions } = await admin.from("push_subscriptions").select("*");

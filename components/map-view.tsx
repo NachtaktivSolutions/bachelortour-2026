@@ -83,6 +83,7 @@ export function MapView({ pins, programItems, members }: Props) {
 function FitMap({ points }: { points: [number,number][] }) {
   const map = useMap();
   useEffect(() => {
+    window.setTimeout(() => map.invalidateSize(), 50);
     if (!points.length) return;
     if (points.length === 1) map.setView(points[0], 15);
     else map.fitBounds(L.latLngBounds(points), { padding: [45,45], maxZoom: 16 });

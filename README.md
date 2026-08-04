@@ -140,3 +140,27 @@ Einrichtung:
 1. `supabase/migration_v5_map_gallery.sql` in Supabase ausführen.
 2. V5-Dateien vollständig nach GitHub kopieren und ersetzen.
 3. Commit / Push; Vercel deployt automatisch.
+
+
+## Firestarter V6
+
+V6 ergänzt:
+- Push-Fallback für fehlendes `VAPID_SUBJECT`
+- Titelbild-Upload im Adminbereich
+- Admin hinzufügen über Plus-Auswahl
+- Profile anderer Mitglieder bearbeiten
+- temporäres Passwort durch Admin setzen
+- Start- und Endzeit für Events
+- vergangene Events werden auf der Karte ausgeblendet
+- Karte zoomt automatisch auf alle sichtbaren Marker
+
+Einrichtung:
+1. `supabase/migration_v6_admin_events_push.sql` ausführen.
+2. V6 nach GitHub kopieren und deployen.
+3. In Vercel zusätzlich setzen:
+   `NEXT_PUBLIC_SITE_URL=https://bachelortour-2026.vercel.app`
+4. Für Push weiterhin benötigt:
+   - `NEXT_PUBLIC_VAPID_PUBLIC_KEY`
+   - `VAPID_PRIVATE_KEY`
+   `VAPID_SUBJECT` ist ab V6 optional, kann aber z. B. auf
+   `https://bachelortour-2026.vercel.app` gesetzt werden.
