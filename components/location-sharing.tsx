@@ -5,11 +5,14 @@ import { createClient } from "@/lib/supabase/client";
 import { useApp } from "./app-provider";
 import { LocateFixed } from "lucide-react";
 
+const ACTIVE_UPDATE_INTERVAL_MS = 10_000;
+
 export function LocationSharing() {
   const { profile, refreshProfile } = useApp();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const watchId = useRef<number | null>(null);
+  const intervalId = useRef<number | null>(null);
+  const requestRunning = useRef(false);
   const supabase = createClient();
 
   const savePosition = useCallback(async (position: GeolocationPosition) => {
@@ -25,25 +28,53 @@ export function LocationSharing() {
     setMessage("Standort aktualisiert");
   }, [profile, supabase]);
 
+  const requestPosition = useCallback(() => {
+    if (!profile?.share_location || !navigator.geolocation || document.visibilityState !== "visible" || requestRunning.current) return;
+    requestRunning.current = true;
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        savePosition(position).catch(error => setMessage(error.message)).finally(() => { requestRunning.current = false; });
+      },
+      error => {
+        requestRunning.current = false;
+        setMessage(locationError(error));
+      },
+      { enableHighAccuracy: true, maximumAge: 5_000, timeout: 9_000 }
+    );
+  }, [profile?.share_location, savePosition]);
+
   useEffect(() => {
     if (!profile?.share_location || !navigator.geolocation) return;
 
-    navigator.geolocation.getCurrentPosition(
-      position => savePosition(position).catch(error => setMessage(error.message)),
-      error => setMessage(locationError(error)),
-      { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 }
-    );
+    const startActiveUpdates = () => {
+      if (document.visibilityState !== "visible") return;
+      requestPosition();
+      if (intervalId.current !== null) window.clearInterval(intervalId.current);
+      intervalId.current = window.setInterval(requestPosition, ACTIVE_UPDATE_INTERVAL_MS);
+    };
 
-    watchId.current = navigator.geolocation.watchPosition(
-      position => savePosition(position).catch(error => setMessage(error.message)),
-      error => setMessage(locationError(error)),
-      { enableHighAccuracy: true, maximumAge: 30000, timeout: 20000 }
-    );
+    const stopActiveUpdates = () => {
+      if (intervalId.current !== null) {
+        window.clearInterval(intervalId.current);
+        intervalId.current = null;
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") startActiveUpdates();
+      else stopActiveUpdates();
+    };
+
+    startActiveUpdates();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", startActiveUpdates);
 
     return () => {
-      if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current);
+      stopActiveUpdates();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", startActiveUpdates);
     };
-  }, [profile?.share_location, savePosition]);
+  }, [profile?.share_location, requestPosition]);
 
   const toggle = async () => {
     if (!profile) return;
@@ -70,7 +101,7 @@ export function LocationSharing() {
           navigator.geolocation.getCurrentPosition(
             position => savePosition(position).then(resolve).catch(reject),
             reject,
-            { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
+            { enableHighAccuracy: true, maximumAge: 0, timeout: 20_000 }
           );
         });
       }
