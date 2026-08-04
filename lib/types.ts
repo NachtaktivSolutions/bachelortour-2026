@@ -9,6 +9,8 @@ export type Profile = {
   longitude: number | null;
   location_updated_at: string | null;
   chat_last_read_at: string | null;
+  participant_status: string | null;
+  status_updated_at: string | null;
   created_at: string;
 };
 
