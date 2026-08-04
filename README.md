@@ -98,3 +98,20 @@ V2 ergänzt:
 - Galerie-Likes
 - Admin-Verwaltung
 - Push-Aktivierung für Teilnehmer
+
+
+## Firestarter V3 – Registrierung reparieren
+
+1. In Supabase **SQL Editor → New query** öffnen.
+2. `supabase/migration_v3_auth_profile_trigger.sql` vollständig einfügen und ausführen.
+3. In Supabase unter **Authentication → Sign In / Providers → Email** für den schnellen Eventbetrieb
+   die E-Mail-Bestätigung deaktivieren. Je nach Oberfläche heißt die Option:
+   - Confirm email
+   - Enable email confirmations
+   Diese Option ausschalten.
+4. Den kompletten V3-Projektinhalt in GitHub ersetzen und committen.
+5. Vercel baut automatisch neu.
+
+Ab V3 erstellt Supabase das Profil serverseitig über einen Trigger. Das Frontend muss keinen
+RLS-geschützten Insert mehr durchführen. Name und Telefonnummer werden sicher aus den
+Registrierungs-Metadaten übernommen.
