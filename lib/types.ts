@@ -37,6 +37,7 @@ export type ProgramItem = {
   starts_at: string;
   ends_at: string | null;
   marker_type: "program" | "meeting";
+  is_visible: boolean;
   created_at: string;
 };
 
