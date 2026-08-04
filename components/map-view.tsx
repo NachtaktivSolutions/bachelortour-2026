@@ -30,7 +30,13 @@ export function MapView({pins,programItems,members,fitRequest}:Props){
 
   useEffect(()=>{localStorage.setItem("firestarter-map-layers",JSON.stringify(layers))},[layers]);
 
-  async function search(e:FormEvent){e.preventDefault();if(!query.trim())return;const res=await fetch(`/api/map-search?q=${encodeURIComponent(query.trim())}`);const data=await res.json();if(res.ok&&data.latitude)setSearchTarget([data.latitude,data.longitude])}
+  async function search(e:FormEvent){
+    e.preventDefault();if(!query.trim())return;
+    const localCenter=profile?.latitude!=null&&profile?.longitude!=null?[profile.latitude,profile.longitude] as [number,number]:center;
+    const params=new URLSearchParams({q:query.trim(),lat:String(localCenter[0]),lon:String(localCenter[1])});
+    const res=await fetch(`/api/map-search?${params.toString()}`);
+    const data=await res.json();if(res.ok&&data.latitude)setSearchTarget([data.latitude,data.longitude]);
+  }
 
   return <div className="smart-map-wrap">
     <MapContainer center={center} zoom={14} className="map-container">
@@ -41,7 +47,7 @@ export function MapView({pins,programItems,members,fitRequest}:Props){
       {pois.map(poi=><Marker key={`poi-${poi.id}`} position={[poi.latitude,poi.longitude]} icon={poiIcon(poi.category)} zIndexOffset={120}><Popup><div className="map-popup poi-popup"><span>{categoryEmoji(poi.category)} {categoryLabel(poi.category)}</span><strong>{poi.name}</strong>{poi.address&&<small>{poi.address}</small>}<a target="_blank" rel="noreferrer" href={navigationUrl(poi.latitude,poi.longitude)}>Navigieren</a></div></Popup></Marker>)}
       {orderedMembers.map(member=>{const own=member.id===profile?.id;const stale=isStale(member.location_updated_at);const status=member.participant_status||"kein Status";const help=statusClass(status)==="status-help";return <Marker key={`member-${member.id}`} position={[member.latitude!,member.longitude!]} icon={memberIcon(member,own,stale)} zIndexOffset={help?1000:own?700:500}><Popup><div className="map-popup member-map-popup"><div className="member-popup-head"><span className="member-popup-avatar">{member.avatar_url?<img src={member.avatar_url} alt=""/>:<b>{initials(member.name)}</b>}</span><div><strong>{own?"Mein Standort":member.name}</strong><span className={`map-status-badge ${statusClass(status)}`}>{status}</span></div></div><small>{member.location_updated_at?relativeUpdated(member.location_updated_at,stale):"Standort geteilt"}</small>{stale&&<p>Dieser Standort wurde seit mehr als 30 Minuten nicht aktualisiert.</p>}<div className="member-popup-actions">{!own&&member.phone&&<a href={`tel:${member.phone}`}>Anrufen</a>}<a target="_blank" rel="noreferrer" href={navigationUrl(member.latitude!,member.longitude!)}>Navigieren</a></div></div></Popup></Marker>})}
     </MapContainer>
-    <form className="map-search-box" onSubmit={search}><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Ort oder POI suchen …"/><button>Suchen</button></form>
+    <form className="map-search-box" onSubmit={search}><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="In deiner Nähe suchen, z. B. REWE …"/><button>Suchen</button></form>
     <button className="map-layer-button" onClick={()=>setMenuOpen(v=>!v)}>Ebenen</button>
     {menuOpen&&<div className="map-layer-menu"><strong>Kartenebenen</strong>{layerOptions.map(([key,label,emoji])=><label key={key}><input type="checkbox" checked={layers.includes(key)} onChange={()=>setLayers(v=>v.includes(key)?v.filter(x=>x!==key):[...v,key])}/><span>{emoji} {label}</span></label>)}<div className="map-mode-row"><button className={mapMode==="standard"?"active":""} onClick={()=>setMapMode("standard")}>Standard</button><button className={mapMode==="dark"?"active":""} onClick={()=>setMapMode("dark")}>Dark</button><button className={mapMode==="satellite"?"active":""} onClick={()=>setMapMode("satellite")}>Satellit</button></div></div>}
   </div>;
