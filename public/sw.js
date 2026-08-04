@@ -1,12 +1,17 @@
 self.addEventListener("push", event => {
-  const data = event.data ? event.data.json() : {};
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch { data = { body: event.data?.text() }; }
   event.waitUntil(self.registration.showNotification(data.title || "Firestarter 2026", {
     body: data.body || "Es gibt Neuigkeiten.",
-    icon: "/api/branding/icon?v=13",
-    badge: "/api/branding/icon?v=13",
+    icon: "/api/branding/icon?v=16",
+    badge: "/api/branding/icon?v=16",
     image: data.image || undefined,
     tag: data.tag || "firestarter-2026",
     renotify: true,
+    requireInteraction: false,
+    timestamp: data.timestamp || Date.now(),
+    vibrate: [180, 80, 180],
+    silent: false,
     data: { url: data.url || "/" }
   }));
 });
