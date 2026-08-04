@@ -1,9 +1,12 @@
 self.addEventListener("push", event => {
   const data = event.data ? event.data.json() : {};
-  event.waitUntil(self.registration.showNotification(data.title || "Bachelortour 2026", {
+  event.waitUntil(self.registration.showNotification(data.title || "Firestarter 2026", {
     body: data.body || "Es gibt Neuigkeiten.",
-    icon: "/icons/icon-192.png",
-    badge: "/icons/icon-192.png",
+    icon: "/api/branding/icon?v=13",
+    badge: "/api/branding/icon?v=13",
+    image: data.image || undefined,
+    tag: data.tag || "firestarter-2026",
+    renotify: true,
     data: { url: data.url || "/" }
   }));
 });
