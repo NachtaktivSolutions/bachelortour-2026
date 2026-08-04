@@ -7,6 +7,7 @@ import { Home, Map, MessageCircle, Images, Users, Shield, LogOut, CalendarCog, M
 import { useApp } from "./app-provider";
 import { createClient } from "@/lib/supabase/client";
 import { PwaInstallPrompt } from "./pwa-install-prompt";
+import { EasterEgg } from "./easter-egg";
 
 const nav = [
   { href: "/", label: "Home", icon: Home },
@@ -32,6 +33,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [unreadChat, setUnreadChat] = useState(0);
   const [packingVisible,setPackingVisible]=useState(false);
   const [adminMenuOpen,setAdminMenuOpen]=useState(false);
+  const [easterOpen,setEasterOpen]=useState(false);
+  const easterTaps=useRef<number[]>([]);
   const adminMenuRef=useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
@@ -68,10 +71,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
   },[adminMenuOpen]);
 
   const logout = async () => { await supabase.auth.signOut(); router.replace("/login"); };
+  const triggerEaster=(event:React.MouseEvent<HTMLAnchorElement>)=>{
+    const now=Date.now();
+    easterTaps.current=[...easterTaps.current.filter(time=>now-time<1900),now];
+    if(easterTaps.current.length>=5){event.preventDefault();easterTaps.current=[];setEasterOpen(true)}
+  };
 
   return <div className="app-shell">
     <header className="topbar">
-      <Link href="/" className="brand-lockup"><img className="brand-tour-icon" src="/api/branding/icon" alt="Firestarter"/><div><span className="eyebrow">FIRESTARTER 26</span><strong>Bachelortour 2026</strong></div></Link>
+      <Link href="/" className="brand-lockup" onClick={triggerEaster}><img className="brand-tour-icon" src="/api/branding/icon" alt="Firestarter"/><div><span className="eyebrow">FIRESTARTER 26</span><strong>Bachelortour 2026</strong></div></Link>
       <div className="top-actions">
         <Link className="icon-button" href="/tour-tools" aria-label="Hilfe und Check-in" title="Hilfe, Check-in und Status"><LifeBuoy size={20}/></Link>
         {(packingVisible||profile?.is_admin)&&<Link className="icon-button" href="/packing-list" aria-label="Packliste" title="Packliste"><Luggage size={20}/></Link>}
@@ -86,5 +94,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
     <main className="page-content">{children}</main>
     <nav className="bottom-nav">{nav.map(({href,label,icon:Icon})=>{const active=href==="/"?pathname==="/":pathname.startsWith(href);const isChat=href==="/chat";return <Link key={href} href={href} className={active?"active":""}><span className="nav-icon-wrap"><Icon size={22}/>{isChat&&unreadChat>0&&<span className="chat-unread-badge">{unreadChat>99?"99+":unreadChat}</span>}</span><span>{label}</span></Link>})}</nav>
     <PwaInstallPrompt/>
+    <EasterEgg open={easterOpen} onClose={()=>setEasterOpen(false)}/>
   </div>;
 }
