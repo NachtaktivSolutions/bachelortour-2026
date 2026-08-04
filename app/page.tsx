@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AuthGate } from "@/components/auth-gate";
 import { Shell } from "@/components/shell";
@@ -22,23 +22,43 @@ export default function HomePage() {
   const [memberCount, setMemberCount] = useState(0);
   const supabase = createClient();
 
-  useEffect(() => {
-    Promise.all([
+  const loadPhotos = useCallback(async () => {
+    const { data } = await supabase
+      .from("photos")
+      .select("*, profiles!photos_uploader_id_fkey(name,avatar_url)")
+      .order("created_at", { ascending: false })
+      .limit(5);
+    setPhotos((data as unknown as Photo[]) ?? []);
+  }, [supabase]);
+
+  const loadPage = useCallback(async () => {
+    const [eventResult, newsResult, programResult, memberResult] = await Promise.all([
       supabase.from("event_settings").select("*").eq("id", 1).maybeSingle(),
       supabase.from("news").select("*, profiles(name,avatar_url)").order("created_at", { ascending: false }).limit(4),
       supabase.from("program_items").select("*").gte("starts_at", new Date().toISOString()).order("starts_at").limit(1).maybeSingle(),
-      supabase.from("photos").select("*, profiles(name,avatar_url)").order("created_at", { ascending: false }).limit(6),
       supabase.from("profiles").select("*", { count: "exact", head: true })
-    ]).then(([eventResult, newsResult, programResult, photoResult, memberResult]) => {
-      setEvent(eventResult.data);
-      setNews((newsResult.data as NewsItem[]) ?? []);
-      setNextItem(programResult.data);
-      setPhotos((photoResult.data as Photo[]) ?? []);
-      setMemberCount(memberResult.count ?? 0);
-    });
-  }, []);
+    ]);
+    setEvent(eventResult.data);
+    setNews((newsResult.data as NewsItem[]) ?? []);
+    setNextItem(programResult.data);
+    setMemberCount(memberResult.count ?? 0);
+    await loadPhotos();
+  }, [loadPhotos, supabase]);
 
-  const hero = event?.hero_image_url || "/brand/logo.jpeg";
+  useEffect(() => {
+    loadPage();
+    const channel = supabase.channel("home-fresh-photos")
+      .on("postgres_changes", { event: "*", schema: "public", table: "photos" }, loadPhotos)
+      .subscribe();
+    const refreshOnFocus = () => loadPhotos();
+    window.addEventListener("focus", refreshOnFocus);
+    return () => {
+      window.removeEventListener("focus", refreshOnFocus);
+      supabase.removeChannel(channel);
+    };
+  }, [loadPage, loadPhotos, supabase]);
+
+  const hero = event?.hero_image_url || "/brand/firestarter-hero.jpg";
   const lat = event?.weather_latitude || 48.6778281;
   const lon = event?.weather_longitude || 9.21833;
 
@@ -58,7 +78,7 @@ export default function HomePage() {
 
         <section className="quick-stats">
           <Link href="/members"><Users/><strong>{memberCount}</strong><span>Bachelor</span></Link>
-          <Link href="/gallery"><Images/><strong>{photos.length}+</strong><span>Neue Fotos</span></Link>
+          <Link href="/gallery"><Images/><strong>{photos.length}</strong><span>Neueste Fotos</span></Link>
           <Link href="/chat"><MessageCircle/><strong>Live</strong><span>Gruppenchat</span></Link>
         </section>
 
@@ -97,7 +117,7 @@ export default function HomePage() {
         <section className="section">
           <div className="section-title"><Images size={20}/><h2>Frische Beweise</h2><Link className="section-link" href="/gallery">Alle <ChevronRight size={17}/></Link></div>
           <div className="home-photo-strip">
-            {photos.map(photo => <img key={photo.id} src={photo.image_url} alt="Tourfoto" loading="lazy"/>)}
+            {photos.map(photo => <Link href="/gallery" key={photo.id}><img src={photo.image_url} alt="Tourfoto" loading="lazy"/></Link>)}
             {!photos.length && <div className="empty-card">Noch keine Fotos hochgeladen.</div>}
           </div>
         </section>

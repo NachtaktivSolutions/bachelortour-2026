@@ -8,6 +8,7 @@ export type Profile = {
   latitude: number | null;
   longitude: number | null;
   location_updated_at: string | null;
+  chat_last_read_at: string | null;
   created_at: string;
 };
 

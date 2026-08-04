@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { Home, Map, MessageCircle, Images, Users, Shield, LogOut, CalendarCog } from "lucide-react";
 import { useApp } from "./app-provider";
 import { createClient } from "@/lib/supabase/client";
@@ -18,9 +19,39 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { profile } = useApp();
+  const [unreadChat, setUnreadChat] = useState(0);
+  const supabase = createClient();
+
+  const loadUnread = useCallback(async () => {
+    if (!profile) return;
+    if (pathname.startsWith("/chat")) {
+      setUnreadChat(0);
+      return;
+    }
+    const since = profile.chat_last_read_at || "1970-01-01T00:00:00.000Z";
+    const { count } = await supabase
+      .from("chat_messages")
+      .select("id", { count: "exact", head: true })
+      .neq("sender_id", profile.id)
+      .gt("created_at", since);
+    setUnreadChat(count || 0);
+  }, [pathname, profile, supabase]);
+
+  useEffect(() => {
+    loadUnread();
+    const channel = supabase.channel("chat-unread-badge")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, loadUnread)
+      .subscribe();
+    const onRead = () => setUnreadChat(0);
+    window.addEventListener("chat-read", onRead);
+    return () => {
+      window.removeEventListener("chat-read", onRead);
+      supabase.removeChannel(channel);
+    };
+  }, [loadUnread, supabase]);
 
   const logout = async () => {
-    await createClient().auth.signOut();
+    await supabase.auth.signOut();
     router.replace("/login");
   };
 
@@ -28,7 +59,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     <div className="app-shell">
       <header className="topbar">
         <Link href="/" className="brand-lockup">
-          <span className="brand-flame">🔥</span>
+          <img className="brand-tour-icon" src="/api/branding/icon" alt="" />
           <div><span className="eyebrow">FIRESTARTER 26</span><strong>Bachelortour 2026</strong></div>
         </Link>
         <div className="top-actions">
@@ -46,7 +77,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <nav className="bottom-nav">
         {nav.map(({ href, label, icon: Icon }) => {
           const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
-          return <Link key={href} href={href} className={active ? "active" : ""}><Icon size={22}/><span>{label}</span></Link>;
+          const isChat = href === "/chat";
+          return <Link key={href} href={href} className={active ? "active" : ""}>
+            <span className="nav-icon-wrap"><Icon size={22}/>{isChat && unreadChat > 0 && <span className="chat-unread-badge">{unreadChat > 99 ? "99+" : unreadChat}</span>}</span>
+            <span>{label}</span>
+          </Link>;
         })}
       </nav>
     </div>
