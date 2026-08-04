@@ -11,7 +11,7 @@ const nav = [
   { href: "/map", label: "Karte", icon: Map },
   { href: "/chat", label: "Chat", icon: MessageCircle },
   { href: "/gallery", label: "Fotos", icon: Images },
-  { href: "/members", label: "Jungs", icon: Users }
+  { href: "/members", label: "Bachelor", icon: Users }
 ];
 
 export function Shell({ children }: { children: React.ReactNode }) {

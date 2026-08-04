@@ -1,0 +1,12 @@
+-- Firestarter V7
+-- Für die automatische Push-Abfrage und die Push-Einstellung im Profil
+-- ist keine zusätzliche Datenbankänderung erforderlich.
+--
+-- Voraussetzung aus den bisherigen Migrationen:
+-- public.push_subscriptions mit mindestens:
+--   user_id uuid
+--   subscription jsonb
+--
+-- Diese Datei kann ohne Wirkung ausgeführt werden und dient nur als
+-- Versionshinweis für die Supabase-Schritte dieser Änderung.
+select 'Firestarter V7: keine Supabase-Aenderung erforderlich' as status;

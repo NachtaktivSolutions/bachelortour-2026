@@ -3,6 +3,7 @@
 import { ChangeEvent, FormEvent, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
 import { Shell } from "@/components/shell";
+import { PushProfileSetting } from "@/components/push-settings";
 import { useApp } from "@/components/app-provider";
 import { createClient } from "@/lib/supabase/client";
 
@@ -34,7 +35,8 @@ export default function ProfilePage() {
     setBusy(false);
   }
 
-  return <AuthGate><Shell><div className="page-heading"><span className="eyebrow">DEIN PROFIL</span><h1>Meine Daten</h1><p>Damit dich die Jungs im Notfall finden und anrufen können.</p></div>
+  return <AuthGate><Shell>
+    <div className="page-heading"><span className="eyebrow">DEIN PROFIL</span><h1>Meine Daten</h1><p>Damit dich die Bachelor im Notfall finden und anrufen können.</p></div>
     <form className="profile-card" onSubmit={save}>
       <label className="profile-avatar-upload">{preview?<img src={preview} alt=""/>:<span>Foto</span>}<input name="avatar" type="file" accept="image/*" onChange={(e:ChangeEvent<HTMLInputElement>)=>{const f=e.target.files?.[0];if(f)setPreview(URL.createObjectURL(f))}}/></label>
       <input name="name" defaultValue={profile?.name||""} placeholder="Name" required/>
@@ -42,5 +44,6 @@ export default function ProfilePage() {
       {status&&<div className="status">{status}</div>}
       <button className="primary-button" disabled={busy}>{busy?"Speichert …":"Profil speichern"}</button>
     </form>
+    <PushProfileSetting />
   </Shell></AuthGate>;
 }
