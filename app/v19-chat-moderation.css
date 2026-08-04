@@ -1,0 +1,35 @@
+/* Firestarter V19: Chatverwaltung */
+.chat-admin-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.chat-admin-toolbar button,.bulk-chat-actions button{display:inline-flex;align-items:center;gap:7px;border:1px solid #393939;background:#1d1d1d;color:#fff;border-radius:12px;padding:9px 12px;font-weight:800}
+.chat-admin-toolbar button svg,.bulk-chat-actions button svg{width:17px;height:17px}
+.chat-admin-toolbar button.active{border-color:var(--accent);color:var(--accent)}
+.chat-admin-toolbar button.danger,.bulk-chat-actions button{border-color:#713232;background:#321616;color:#ff9a9a}
+.chat-status{margin:0 0 8px;padding:9px 12px;border:1px solid #365b42;border-radius:12px;background:#173122;color:#aaf0bf;font-weight:700}
+.pinned-message{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;margin:0 0 10px;padding:11px 13px;border:1px solid #6b461f;border-radius:14px;background:linear-gradient(135deg,#2a190c,#171310)}
+.pinned-message>svg{color:var(--accent)}
+.pinned-message span{display:block;color:var(--accent);font-size:.72rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.pinned-message strong{display:inline-block;margin-right:8px}
+.pinned-message p{display:inline;margin:0;color:#eee}
+.pinned-message button{width:34px;height:34px;border:0;border-radius:50%;display:grid;place-items:center;background:#292929;color:#fff}
+.chat-lock-notice{display:flex;align-items:center;gap:8px;margin:0 0 8px;padding:9px 12px;border:1px solid #6b461f;border-radius:12px;background:#281b10;color:#ffd4a4;font-weight:700}
+.chat-lock-notice svg{width:17px;height:17px}
+.message-row{position:relative}
+.message-row.selected .message{outline:2px solid var(--accent)}
+.message-select{flex:0 0 24px;width:24px;height:24px;border:2px solid #777;border-radius:7px;background:#151515;color:#fff;font-weight:900;align-self:center}
+.message-row.selected .message-select{border-color:var(--accent);background:var(--accent)}
+.message-admin-actions{display:flex;gap:5px;margin-top:7px;justify-content:flex-end}
+.message-admin-actions button{width:30px;height:30px;border:0;border-radius:9px;display:grid;place-items:center;background:rgba(0,0,0,.28);color:#ddd}
+.message-admin-actions button:hover,.message-admin-actions button.active{color:var(--accent);background:#242424}
+.message-admin-actions button svg{width:15px;height:15px}
+.bulk-chat-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid #2a2a2a}
+.composer-image.disabled{opacity:.4;pointer-events:none}
+.chat-composer button:disabled,.chat-composer input:disabled{opacity:.55;cursor:not-allowed}
+
+@media(max-width:699px){
+  .chat-admin-toolbar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .chat-admin-toolbar button{justify-content:center;padding:8px 6px;font-size:.75rem}
+  .chat-admin-toolbar button svg{width:15px;height:15px}
+  .pinned-message{grid-template-columns:auto 1fr auto;padding:9px 10px}
+  .pinned-message p{display:block;margin-top:2px}
+  .message-admin-actions{opacity:1}
+}
