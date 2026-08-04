@@ -1,7 +1,7 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Clock3, Hotel, MapPin, PauseCircle, Route, Siren } from "lucide-react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { AlertTriangle, CheckCircle2, Clock3, Hotel, MapPin, PauseCircle, Route, Shirt, Siren } from "lucide-react";
 import { AuthGate } from "@/components/auth-gate";
 import { Shell } from "@/components/shell";
 import { PushProfileSetting } from "@/components/push-settings";
@@ -24,17 +24,31 @@ export default function ProfilePage() {
   const [preview,setPreview]=useState(profile?.avatar_url||"");
   const [avatarFile,setAvatarFile]=useState<File|null>(null);
   const [cropFile,setCropFile]=useState<File|null>(null);
+  const [clothingSize,setClothingSize]=useState("");
+  const [homeAddress,setHomeAddress]=useState("");
   const [status,setStatus]=useState("");
   const [busy,setBusy]=useState(false);
   const [helpBusy,setHelpBusy]=useState(false);
   const supabase=createClient();
 
+  useEffect(()=>{
+    if(!profile)return;
+    supabase.from("member_private_details").select("clothing_size,home_address").eq("user_id",profile.id).maybeSingle().then(({data})=>{
+      setClothingSize(data?.clothing_size||"");
+      setHomeAddress(data?.home_address||"");
+    });
+  },[profile,supabase]);
+
   async function save(e:FormEvent<HTMLFormElement>) {
     e.preventDefault(); if(!profile)return; setBusy(true); setStatus("");
     const f=new FormData(e.currentTarget);const first_name=String(f.get("first_name")).trim();const last_name=String(f.get("last_name")).trim();const name=`${first_name} ${last_name}`.trim();let avatar_url=profile.avatar_url;
     if(avatarFile){const safe=avatarFile.name.replace(/[^a-zA-Z0-9._-]/g,"-");const path=`${profile.id}/${Date.now()}-${safe}`;const up=await supabase.storage.from("avatars").upload(path,avatarFile,{upsert:true});if(up.error){setStatus(up.error.message);setBusy(false);return}avatar_url=supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl}
-    const {error}=await supabase.from("profiles").update({first_name,last_name,name,phone:String(f.get("phone")).trim(),avatar_url}).eq("id",profile.id);
-    if(error)setStatus(error.message);else{setStatus("Profil gespeichert.");setAvatarFile(null);await refreshProfile()}setBusy(false);
+    const [{error},{error:privateError}]=await Promise.all([
+      supabase.from("profiles").update({first_name,last_name,name,phone:String(f.get("phone")).trim(),avatar_url}).eq("id",profile.id),
+      supabase.from("member_private_details").upsert({user_id:profile.id,clothing_size:String(f.get("clothing_size")).trim()||null,home_address:String(f.get("home_address")).trim()||null,updated_at:new Date().toISOString()},{onConflict:"user_id"})
+    ]);
+    const saveError=error||privateError;
+    if(saveError)setStatus(saveError.message);else{setStatus("Profil gespeichert.");setAvatarFile(null);await refreshProfile()}setBusy(false);
   }
 
   async function setParticipantStatus(next:string){if(!profile)return;const {error}=await supabase.from("profiles").update({participant_status:next,status_updated_at:new Date().toISOString()}).eq("id",profile.id);setStatus(error?error.message:`Status auf „${next}“ gesetzt.`);if(!error)await refreshProfile()}
@@ -60,6 +74,7 @@ export default function ProfilePage() {
       <small>Tippe auf das Foto, um ein neues Bild auszuwählen und zuzuschneiden.</small>
       <div className="two-cols"><input name="first_name" defaultValue={first} placeholder="Vorname" required/><input name="last_name" defaultValue={last} placeholder="Nachname" required/></div>
       <input name="phone" defaultValue={profile?.phone||""} placeholder="Handynummer" required/>
+      <div className="private-profile-section"><div className="private-profile-heading"><Shirt/><div><span className="eyebrow">PRIVATE ZUSATZDATEN</span><h3>Kleidung & Anschrift</h3></div></div><p>Diese Angaben können ausschließlich du selbst und die Admins sehen.</p><select name="clothing_size" value={clothingSize} onChange={e=>setClothingSize(e.target.value)}><option value="">Kleidergröße auswählen</option><option>XS</option><option>S</option><option>M</option><option>L</option><option>XL</option><option>XXL</option><option>3XL</option><option>4XL</option><option value="Sonstige">Sonstige</option></select><textarea name="home_address" value={homeAddress} onChange={e=>setHomeAddress(e.target.value)} placeholder="Wohnanschrift: Straße, Hausnummer, PLZ und Ort"/></div>
       <button className="primary-button" disabled={busy}>{busy?"Speichert …":"Profil speichern"}</button>
     </form>
 
