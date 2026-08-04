@@ -36,6 +36,7 @@ export type ProgramItem = {
   longitude: number | null;
   starts_at: string;
   ends_at: string | null;
+  marker_type: "program" | "meeting";
   created_at: string;
 };
 
