@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import type { Profile } from "@/lib/types";
+import { PushBootstrap } from "./push-settings";
 
 type AppContextValue = {
   session: Session | null;
@@ -43,6 +44,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider value={{ session, profile, loading, refreshProfile }}>
       {children}
+      <PushBootstrap />
     </AppContext.Provider>
   );
 }
