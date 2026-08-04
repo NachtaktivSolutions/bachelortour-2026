@@ -17,8 +17,8 @@ export const metadata: Metadata = {
     title: "Bachelortour"
   },
   icons: {
-    icon: "/icons/icon-192.png",
-    apple: "/icons/icon-192.png"
+    icon: "/api/branding/icon",
+    apple: "/api/branding/icon"
   }
 };
 
