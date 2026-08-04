@@ -1,14 +1,101 @@
 "use client";
 import { useCallback,useEffect,useState } from "react";
+import { createPortal } from "react-dom";
 import { Home,Info,MapPinned,Navigation,Phone,Shirt,Trash2,X } from "lucide-react";
-import { AuthGate } from "@/components/auth-gate";import { Shell } from "@/components/shell";import { useApp } from "@/components/app-provider";import { createClient } from "@/lib/supabase/client";import type { Profile } from "@/lib/types";
+import { AuthGate } from "@/components/auth-gate";
+import { Shell } from "@/components/shell";
+import { useApp } from "@/components/app-provider";
+import { createClient } from "@/lib/supabase/client";
+import type { Profile } from "@/lib/types";
+
 type PrivateDetails={user_id:string;clothing_size:string|null;home_address:string|null;street:string|null;postal_code:string|null;city:string|null};
+
 export default function MembersPage(){
- const {profile,session}=useApp();const [members,setMembers]=useState<Profile[]>([]),[details,setDetails]=useState<Record<string,PrivateDetails>>({}),[selected,setSelected]=useState<Profile|null>(null),[q,setQ]=useState(""),[status,setStatus]=useState("");const supabase=createClient();
- const load=useCallback(async()=>{const {data}=await supabase.from("profiles").select("*").order("name");setMembers(data??[]);if(profile?.is_admin){const {data:d}=await supabase.from("member_private_details").select("user_id,clothing_size,home_address,street,postal_code,city");setDetails(Object.fromEntries((d??[]).map(i=>[i.user_id,i]))) }},[supabase,profile?.is_admin]);
- useEffect(()=>{load();const c=supabase.channel("members-status-live").on("postgres_changes",{event:"UPDATE",schema:"public",table:"profiles"},load).subscribe();return()=>{supabase.removeChannel(c)}},[load,supabase]);
- async function remove(m:Profile){if(!profile?.is_admin||m.id===profile.id||!confirm(`${m.name} wirklich vollständig löschen?`))return;const r=await fetch("/api/admin/users",{method:"DELETE",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session?.access_token}`},body:JSON.stringify({userId:m.id})});const j=await r.json();setStatus(r.ok?`${m.name} wurde gelöscht.`:j.error);if(r.ok)await load()}
- const d=selected?details[selected.id]:null;const address=d?[d.street,d.postal_code&&d.city?`${d.postal_code} ${d.city}`:d.postal_code||d.city].filter(Boolean).join("\n")||d.home_address||"Nicht hinterlegt":"";
- return <AuthGate><Shell><div className="page-heading"><h1>Mitglieder</h1><p>{members.length} Bachelor auf Tour.</p></div>{status&&<div className="status">{status}</div>}<input className="search" placeholder="Mitglied suchen …" value={q} onChange={e=>setQ(e.target.value)}/><div className="member-list">{members.filter(m=>m.name.toLowerCase().includes(q.toLowerCase())).map(m=><article className="member-card" key={m.id}><div className="avatar large">{m.avatar_url?<img src={m.avatar_url} alt=""/>:<span>{m.name[0]}</span>}</div><div className="member-info"><h3>{m.name}{m.is_admin&&<em>Admin</em>}</h3><p>{m.share_location?"Standort aktiv":"Standort verborgen"}</p>{m.participant_status&&<span className={`participant-status status-${statusSlug(m.participant_status)}`}>{m.participant_status}</span>}</div>{profile?.is_admin&&<button className="icon-button member-info-button" onClick={()=>setSelected(m)} title="Private Mitgliedsdaten"><Info/></button>}{m.phone&&<a className="icon-button" href={`tel:${m.phone}`}><Phone/></a>}{m.latitude&&m.longitude&&<a className="icon-button" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/dir/?api=1&destination=${m.latitude},${m.longitude}`}><MapPinned/></a>}{profile?.is_admin&&m.id!==profile.id&&<button className="icon-button danger-icon" onClick={()=>remove(m)}><Trash2/></button>}</article>)}</div>
- {profile?.is_admin&&selected&&<div className="member-detail-backdrop" onClick={()=>setSelected(null)}><section className="member-detail-dialog premium" onClick={e=>e.stopPropagation()}><button className="member-detail-close" onClick={()=>setSelected(null)}><X/></button><div className="member-detail-hero"><div className="avatar xl">{selected.avatar_url?<img src={selected.avatar_url} alt=""/>:<span>{selected.name[0]}</span>}</div><span className="eyebrow">ADMIN-INFORMATIONEN</span><h2>{selected.name}</h2>{selected.is_admin&&<em className="admin-pill">Admin</em>}</div><div className="member-private-list"><div><Phone/><span><small>Telefon</small><strong>{selected.phone||"Nicht hinterlegt"}</strong></span></div><div><Shirt/><span><small>Kleidergröße</small><strong>{d?.clothing_size||"Nicht hinterlegt"}</strong></span></div><div><Home/><span><small>Wohnanschrift</small><strong>{address}</strong></span></div></div><div className="member-detail-actions">{selected.phone&&<a href={`tel:${selected.phone}`}><Phone/>Anrufen</a>}{address&&address!=="Nicht hinterlegt"&&<a target="_blank" rel="noreferrer" href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address.replace("\n",", "))}`}><Navigation/>Navigieren</a>}</div></section></div>}</Shell></AuthGate>}
+ const {profile,session}=useApp();
+ const [members,setMembers]=useState<Profile[]>([]);
+ const [details,setDetails]=useState<Record<string,PrivateDetails>>({});
+ const [selected,setSelected]=useState<Profile|null>(null);
+ const [mounted,setMounted]=useState(false);
+ const [q,setQ]=useState("");
+ const [status,setStatus]=useState("");
+ const supabase=createClient();
+
+ useEffect(()=>setMounted(true),[]);
+ useEffect(()=>{
+   if(!selected)return;
+   const previousOverflow=document.body.style.overflow;
+   const previousOverscroll=document.body.style.overscrollBehavior;
+   document.body.style.overflow="hidden";
+   document.body.style.overscrollBehavior="none";
+   const close=(event:KeyboardEvent)=>{if(event.key==="Escape")setSelected(null)};
+   window.addEventListener("keydown",close);
+   return()=>{
+     document.body.style.overflow=previousOverflow;
+     document.body.style.overscrollBehavior=previousOverscroll;
+     window.removeEventListener("keydown",close);
+   };
+ },[selected]);
+
+ const load=useCallback(async()=>{
+   const {data}=await supabase.from("profiles").select("*").order("name");
+   setMembers(data??[]);
+   if(profile?.is_admin){
+     const {data:d}=await supabase.from("member_private_details").select("user_id,clothing_size,home_address,street,postal_code,city");
+     setDetails(Object.fromEntries((d??[]).map(i=>[i.user_id,i])));
+   }
+ },[supabase,profile?.is_admin]);
+
+ useEffect(()=>{
+   load();
+   const c=supabase.channel("members-status-live").on("postgres_changes",{event:"UPDATE",schema:"public",table:"profiles"},load).subscribe();
+   return()=>{supabase.removeChannel(c)};
+ },[load,supabase]);
+
+ async function remove(m:Profile){
+   if(!profile?.is_admin||m.id===profile.id||!confirm(`${m.name} wirklich vollständig löschen?`))return;
+   const r=await fetch("/api/admin/users",{method:"DELETE",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session?.access_token}`},body:JSON.stringify({userId:m.id})});
+   const j=await r.json();setStatus(r.ok?`${m.name} wurde gelöscht.`:j.error);if(r.ok)await load();
+ }
+
+ const d=selected?details[selected.id]:null;
+ const address=d?[d.street,d.postal_code&&d.city?`${d.postal_code} ${d.city}`:d.postal_code||d.city].filter(Boolean).join("\n")||d.home_address||"Nicht hinterlegt":"";
+ const modal=profile?.is_admin&&selected?(
+   <div className="member-detail-backdrop" role="dialog" aria-modal="true" aria-label={`Admin-Informationen zu ${selected.name}`} onClick={()=>setSelected(null)}>
+     <section className="member-detail-dialog premium" onClick={e=>e.stopPropagation()}>
+       <button className="member-detail-close" onClick={()=>setSelected(null)} aria-label="Schließen"><X/></button>
+       <div className="member-detail-hero">
+         <div className="avatar xl">{selected.avatar_url?<img src={selected.avatar_url} alt=""/>:<span>{selected.name[0]}</span>}</div>
+         <span className="eyebrow">ADMIN-INFORMATIONEN</span>
+         <h2>{selected.name}</h2>
+         {selected.is_admin&&<em className="admin-pill">Admin</em>}
+       </div>
+       <div className="member-private-list">
+         <div><Phone/><span><small>Telefon</small><strong>{selected.phone||"Nicht hinterlegt"}</strong></span></div>
+         <div><Shirt/><span><small>Kleidergröße</small><strong>{d?.clothing_size||"Nicht hinterlegt"}</strong></span></div>
+         <div><Home/><span><small>Wohnanschrift</small><strong>{address}</strong></span></div>
+       </div>
+       <div className="member-detail-actions">
+         {selected.phone&&<a href={`tel:${selected.phone}`}><Phone/>Anrufen</a>}
+         {address&&address!=="Nicht hinterlegt"&&<a target="_blank" rel="noreferrer" href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address.replace("\n",", "))}`}><Navigation/>Navigieren</a>}
+       </div>
+     </section>
+   </div>
+ ):null;
+
+ return <AuthGate><Shell>
+   <div className="page-heading"><h1>Mitglieder</h1><p>{members.length} Bachelor auf Tour.</p></div>
+   {status&&<div className="status">{status}</div>}
+   <input className="search" placeholder="Mitglied suchen …" value={q} onChange={e=>setQ(e.target.value)}/>
+   <div className="member-list">{members.filter(m=>m.name.toLowerCase().includes(q.toLowerCase())).map(m=><article className="member-card" key={m.id}>
+     <div className="avatar large">{m.avatar_url?<img src={m.avatar_url} alt=""/>:<span>{m.name[0]}</span>}</div>
+     <div className="member-info"><h3>{m.name}{m.is_admin&&<em>Admin</em>}</h3><p>{m.share_location?"Standort aktiv":"Standort verborgen"}</p>{m.participant_status&&<span className={`participant-status status-${statusSlug(m.participant_status)}`}>{m.participant_status}</span>}</div>
+     {profile?.is_admin&&<button className="icon-button member-info-button" onClick={()=>setSelected(m)} title="Private Mitgliedsdaten"><Info/></button>}
+     {m.phone&&<a className="icon-button" href={`tel:${m.phone}`}><Phone/></a>}
+     {m.latitude&&m.longitude&&<a className="icon-button" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/dir/?api=1&destination=${m.latitude},${m.longitude}`}><MapPinned/></a>}
+     {profile?.is_admin&&m.id!==profile.id&&<button className="icon-button danger-icon" onClick={()=>remove(m)}><Trash2/></button>}
+   </article>)}</div>
+   {mounted&&modal?createPortal(modal,document.body):null}
+ </Shell></AuthGate>;
+}
+
 function statusSlug(v:string){return v.toLowerCase().replace(/ä/g,"ae").replace(/ö/g,"oe").replace(/ü/g,"ue").replace(/ß/g,"ss").replace(/[^a-z0-9]+/g,"-")}
