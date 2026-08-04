@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Home, Map, MessageCircle, Images, Users, Shield, LogOut, CalendarCog, MapPinned, Luggage, ListChecks, LayoutDashboard, ChevronDown, LifeBuoy } from "lucide-react";
+import { Home, Map, MessageCircle, Images, Users, Shield, LogOut, CalendarCog, MapPinned, Luggage, ListChecks, LayoutDashboard, ChevronDown, LifeBuoy, BellRing } from "lucide-react";
 import { useApp } from "./app-provider";
 import { createClient } from "@/lib/supabase/client";
 import { PwaInstallPrompt } from "./pwa-install-prompt";
@@ -18,10 +18,11 @@ const nav = [
 
 const adminLinks = [
   { href: "/admin", label: "Admin-Zentrale", description: "Neuigkeiten, Push, Tour und Mitglieder", icon: LayoutDashboard },
+  { href: "/admin/reminders", label: "Erinnerungen", description: "Automatische Pushs planen und verwalten", icon: BellRing },
   { href: "/admin/events", label: "Programm verwalten", description: "Programmpunkte anlegen und bearbeiten", icon: CalendarCog },
   { href: "/admin/places", label: "Hotels & Wissenswertes", description: "Geheime Orte und Unterkunft steuern", icon: MapPinned },
   { href: "/admin/packing-list", label: "Packliste verwalten", description: "Rubriken, Gegenstände und Freigabe", icon: ListChecks },
-  { href: "/admin/tour-tools", label: "Hilfe & Check-ins", description: "Notfälle, Anwesenheit und Erinnerungen", icon: LifeBuoy }
+  { href: "/admin/tour-tools", label: "Notfall & Check-ins", description: "Notfallkontakte und Anwesenheit", icon: LifeBuoy }
 ];
 
 export function Shell({ children }: { children: React.ReactNode }) {
