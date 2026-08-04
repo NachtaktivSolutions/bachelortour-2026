@@ -7,6 +7,7 @@ import type { MapPin, Profile, ProgramItem } from "@/lib/types";
 import { useApp } from "./app-provider";
 
 const eventIcon = L.divIcon({ className: "map-marker event-map-marker", html: "<span>🔥</span>", iconSize: [42,42], iconAnchor: [21,42] });
+const STALE_AFTER_MS = 30 * 60 * 1000;
 
 type Props = {
   pins: MapPin[];
@@ -40,8 +41,9 @@ export function MapView({ pins, programItems, members }: Props) {
 
     {members.filter(m => m.share_location && m.latitude != null && m.longitude != null).map(member => {
       const own = member.id === profile?.id;
-      return <Marker key={`member-${member.id}`} position={[member.latitude!,member.longitude!]} icon={memberIcon(member, own)}>
-        <Popup><div className="map-popup"><strong>{own ? "Mein Standort" : member.name}</strong><small>{member.location_updated_at ? `Aktualisiert: ${formatBerlin(member.location_updated_at, true)}` : "Standort geteilt"}</small>{!own && member.phone && <a href={`tel:${member.phone}`}>Anrufen</a>}<a target="_blank" rel="noreferrer" href={navigationUrl(member.latitude!, member.longitude!)}>Dorthin navigieren</a></div></Popup>
+      const stale = isStale(member.location_updated_at);
+      return <Marker key={`member-${member.id}`} position={[member.latitude!,member.longitude!]} icon={memberIcon(member, own, stale)}>
+        <Popup><div className="map-popup"><strong>{own ? "Mein Standort" : member.name}</strong><small>{member.location_updated_at ? `${stale ? "Nicht aktuell · " : "Aktualisiert: "}${formatBerlin(member.location_updated_at, true)}` : "Standort geteilt"}</small>{stale&&<p>Dieser Standort wurde seit mehr als 30 Minuten nicht aktualisiert.</p>}{!own && member.phone && <a href={`tel:${member.phone}`}>Anrufen</a>}<a target="_blank" rel="noreferrer" href={navigationUrl(member.latitude!, member.longitude!)}>Dorthin navigieren</a></div></Popup>
       </Marker>;
     })}
   </MapContainer>;
@@ -62,21 +64,26 @@ function FitMap({ points }: { points: [number,number][] }) {
   return null;
 }
 
-function memberIcon(member: Profile, own: boolean) {
+function memberIcon(member: Profile, own: boolean, stale: boolean) {
   const initials = member.name.split(/\s+/).filter(Boolean).slice(0,2).map(part => part[0]?.toUpperCase()).join("") || "?";
   const content = member.avatar_url
     ? `<img src="${escapeHtml(member.avatar_url)}" alt=""/>`
     : `<span>${escapeHtml(initials)}</span>`;
   return L.divIcon({
-    className: `map-marker profile-map-marker${own ? " own" : ""}`,
-    html: `<div>${content}</div>`,
+    className: `map-marker profile-map-marker${own ? " own" : ""}${stale ? " stale" : ""}`,
+    html: `<div style="${stale ? "filter:grayscale(1);opacity:.58;" : ""}">${content}</div>`,
     iconSize: [46,46],
     iconAnchor: [23,46]
   });
 }
 
+function isStale(value?: string | null) {
+  if (!value) return true;
+  return Date.now() - new Date(value).getTime() > STALE_AFTER_MS;
+}
+
 function escapeHtml(value: string) {
-  return value.replace(/[&<>'"]/g, char => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "'":"&#39;", '"':"&quot;" }[char] || char));
+  return value.replace(/[&<>'\"]/g, char => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "'":"&#39;", '\"':"&quot;" }[char] || char));
 }
 
 function navigationUrl(latitude: number, longitude: number, address?: string | null) {
