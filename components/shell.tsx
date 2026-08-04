@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Home, Map, MessageCircle, Images, Users, Shield, LogOut, CalendarCog, MapPinned, Luggage, ListChecks, LayoutDashboard, ChevronDown } from "lucide-react";
 import { useApp } from "./app-provider";
 import { createClient } from "@/lib/supabase/client";
+import { PwaInstallPrompt } from "./pwa-install-prompt";
 
 const nav = [
   { href: "/", label: "Home", icon: Home },
@@ -86,5 +87,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
     </header>
     <main className="page-content">{children}</main>
     <nav className="bottom-nav">{nav.map(({href,label,icon:Icon})=>{const active=href==="/"?pathname==="/":pathname.startsWith(href);const isChat=href==="/chat";return <Link key={href} href={href} className={active?"active":""}><span className="nav-icon-wrap"><Icon size={22}/>{isChat&&unreadChat>0&&<span className="chat-unread-badge">{unreadChat>99?"99+":unreadChat}</span>}</span><span>{label}</span></Link>})}</nav>
+    <PwaInstallPrompt/>
   </div>;
 }
