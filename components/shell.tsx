@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { Home, Map, MessageCircle, Images, Users, Shield, LogOut, CalendarCog, MapPinned } from "lucide-react";
+import { Home, Map, MessageCircle, Images, Users, Shield, LogOut, CalendarCog, MapPinned, Luggage, ListChecks } from "lucide-react";
 import { useApp } from "./app-provider";
 import { createClient } from "@/lib/supabase/client";
 
@@ -20,51 +20,31 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { profile } = useApp();
   const [unreadChat, setUnreadChat] = useState(0);
+  const [packingVisible,setPackingVisible]=useState(false);
   const supabase = createClient();
 
   const loadUnread = useCallback(async () => {
     if (!profile) return;
-    if (pathname.startsWith("/chat")) {
-      setUnreadChat(0);
-      return;
-    }
-
-    // Den Lesestand immer frisch aus der Datenbank holen. Der Profilwert im
-    // App-Kontext kann nach dem Öffnen des Chats noch veraltet sein.
-    const { data: freshProfile } = await supabase
-      .from("profiles")
-      .select("chat_last_read_at")
-      .eq("id", profile.id)
-      .maybeSingle();
-
+    if (pathname.startsWith("/chat")) { setUnreadChat(0); return; }
+    const { data: freshProfile } = await supabase.from("profiles").select("chat_last_read_at").eq("id", profile.id).maybeSingle();
     const since = freshProfile?.chat_last_read_at || profile.chat_last_read_at || "1970-01-01T00:00:00.000Z";
-    const { count } = await supabase
-      .from("chat_messages")
-      .select("id", { count: "exact", head: true })
-      .neq("sender_id", profile.id)
-      .gt("created_at", since);
-
+    const { count } = await supabase.from("chat_messages").select("id", { count: "exact", head: true }).neq("sender_id", profile.id).gt("created_at", since);
     setUnreadChat(count || 0);
   }, [pathname, profile, supabase]);
 
+  const loadPacking=useCallback(async()=>{const {data}=await supabase.from("packing_settings").select("is_visible").eq("id",1).maybeSingle();setPackingVisible(Boolean(data?.is_visible))},[supabase]);
+
   useEffect(() => {
-    loadUnread();
-    const channel = supabase
-      .channel("chat-unread-badge")
+    loadUnread();loadPacking();
+    const channel = supabase.channel("shell-live")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, loadUnread)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${profile?.id}` }, loadUnread)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "packing_settings", filter:"id=eq.1" }, loadPacking)
       .subscribe();
-
-    const onRead = () => {
-      setUnreadChat(0);
-      loadUnread();
-    };
+    const onRead = () => { setUnreadChat(0); loadUnread(); };
     window.addEventListener("chat-read", onRead);
-    return () => {
-      window.removeEventListener("chat-read", onRead);
-      supabase.removeChannel(channel);
-    };
-  }, [loadUnread, profile?.id, supabase]);
+    return () => { window.removeEventListener("chat-read", onRead); supabase.removeChannel(channel); };
+  }, [loadUnread,loadPacking,profile?.id,supabase]);
 
   const logout = async () => { await supabase.auth.signOut(); router.replace("/login"); };
 
@@ -72,7 +52,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
     <header className="topbar">
       <Link href="/" className="brand-lockup"><img className="brand-tour-icon" src="/api/branding/icon" alt="Firestarter"/><div><span className="eyebrow">FIRESTARTER 26</span><strong>Bachelortour 2026</strong></div></Link>
       <div className="top-actions">
+        {(packingVisible||profile?.is_admin)&&<Link className="icon-button" href="/packing-list" aria-label="Packliste" title="Packliste"><Luggage size={20}/></Link>}
         {profile?.is_admin && <>
+          <Link className="icon-button admin-button" href="/admin/packing-list" aria-label="Packliste verwalten" title="Packliste verwalten"><ListChecks size={20}/></Link>
           <Link className="icon-button admin-button" href="/admin/places" aria-label="Hotels und Wissenswertes" title="Hotels und Wissenswertes"><MapPinned size={20}/></Link>
           <Link className="icon-button admin-button" href="/admin/events" aria-label="Events verwalten" title="Events verwalten"><CalendarCog size={20}/></Link>
           <Link className="icon-button admin-button" href="/admin" aria-label="Adminbereich" title="Adminbereich"><Shield size={20}/></Link>
