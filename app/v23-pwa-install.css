@@ -1,0 +1,18 @@
+.pwa-install-backdrop{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.76);backdrop-filter:blur(12px);display:grid;place-items:center;padding:calc(env(safe-area-inset-top) + 18px) 18px calc(env(safe-area-inset-bottom) + 18px)}
+.pwa-install-card{position:relative;width:min(100%,430px);max-height:100%;overflow:auto;background:linear-gradient(160deg,#1b1b1b,#090909 68%);border:1px solid rgba(255,255,255,.13);border-radius:28px;padding:28px 22px 22px;text-align:center;box-shadow:0 28px 90px rgba(0,0,0,.65)}
+.pwa-install-close{position:absolute;right:14px;top:14px;width:38px;height:38px;border:0;border-radius:50%;background:rgba(255,255,255,.09);color:#fff;display:grid;place-items:center}
+.pwa-install-close svg{width:19px}
+.pwa-install-logo{width:86px;height:86px;border-radius:24px;object-fit:cover;margin:2px auto 16px;box-shadow:0 12px 35px rgba(255,91,31,.28)}
+.pwa-install-card h2{font-size:1.65rem;margin:6px 0 10px}
+.pwa-install-card>p{color:rgba(255,255,255,.7);line-height:1.5;margin:0 auto 20px;max-width:340px}
+.pwa-install-main,.pwa-install-later{width:100%;justify-content:center}
+.pwa-install-main{margin-top:4px}
+.pwa-install-later{margin-top:10px}
+.pwa-ios-guide{display:grid;gap:10px;text-align:left;margin:8px 0 16px}
+.pwa-ios-guide>div{display:grid;grid-template-columns:28px 28px 1fr;align-items:center;gap:10px;padding:12px;border-radius:16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.07)}
+.pwa-ios-guide>div>span{width:26px;height:26px;border-radius:50%;background:#ff651f;color:white;display:grid;place-items:center;font-weight:800;font-size:.8rem}
+.pwa-ios-guide svg{width:22px;color:#ff7a3d}
+.pwa-ios-guide p,.pwa-generic-guide p{margin:0;color:rgba(255,255,255,.78);font-size:.92rem;line-height:1.4}
+.pwa-generic-guide{display:flex;align-items:center;gap:14px;text-align:left;padding:15px;border-radius:16px;background:rgba(255,255,255,.06);margin:8px 0 16px}
+.pwa-generic-guide svg{flex:0 0 auto;color:#ff6b25}
+@media(max-height:620px){.pwa-install-card{padding-top:20px}.pwa-install-logo{width:64px;height:64px;border-radius:19px;margin-bottom:10px}.pwa-install-card h2{font-size:1.35rem}.pwa-ios-guide>div{padding:9px}}
