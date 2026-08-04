@@ -3,6 +3,7 @@ import "./globals.css";
 import "./push-settings.css";
 import "./v8.css";
 import "./v9-branding.css";
+import "./v10-premium.css";
 import "leaflet/dist/leaflet.css";
 import { AppProvider } from "@/components/app-provider";
 
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "black",
     title: "Bachelortour"
   },
   icons: {
@@ -22,9 +23,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#ff6a00",
+  themeColor: "#090909",
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
   viewportFit: "cover"
 };
 

@@ -58,14 +58,14 @@ export default function HomePage() {
     };
   }, [loadPage, loadPhotos, supabase]);
 
-  const hero = event?.hero_image_url || "/brand/firestarter-hero.jpg";
+  const hero = event?.hero_image_url || "/brand/logo.jpeg";
   const lat = event?.weather_latitude || 48.6778281;
   const lon = event?.weather_longitude || 9.21833;
 
   return (
     <AuthGate>
       <Shell>
-        <section className="hero premium-hero" style={{ backgroundImage: `linear-gradient(180deg,rgba(0,0,0,.06),rgba(0,0,0,.97)),url("${hero}")` }}>
+        <section className="hero premium-hero hero-v10" style={{ backgroundImage: `linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.95)),url("${hero}")` }}>
           <div className="hero-fire-glow" />
           <div className="hero-overlay">
             <span className="eyebrow">DER COUNTDOWN LÄUFT</span>
@@ -76,7 +76,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="quick-stats">
+        <section className="quick-stats quick-stats-v10">
           <Link href="/members"><Users/><strong>{memberCount}</strong><span>Bachelor</span></Link>
           <Link href="/gallery"><Images/><strong>{photos.length}</strong><span>Neueste Fotos</span></Link>
           <Link href="/chat"><MessageCircle/><strong>Live</strong><span>Gruppenchat</span></Link>
@@ -116,8 +116,8 @@ export default function HomePage() {
 
         <section className="section">
           <div className="section-title"><Images size={20}/><h2>Frische Beweise</h2><Link className="section-link" href="/gallery">Alle <ChevronRight size={17}/></Link></div>
-          <div className="home-photo-strip">
-            {photos.map(photo => <Link href="/gallery" key={photo.id}><img src={photo.image_url} alt="Tourfoto" loading="lazy"/></Link>)}
+          <div className="home-photo-masonry">
+            {photos.map((photo, index) => <Link href="/gallery" className={`home-proof proof-${index + 1}`} key={photo.id}><img src={photo.image_url} alt="Tourfoto" loading="lazy"/></Link>)}
             {!photos.length && <div className="empty-card">Noch keine Fotos hochgeladen.</div>}
           </div>
         </section>
