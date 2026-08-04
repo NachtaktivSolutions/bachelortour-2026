@@ -58,7 +58,7 @@ export default function HomePage() {
     };
   }, [loadPage, loadPhotos, supabase]);
 
-  const hero = event?.hero_image_url || "/brand/firestarter-hero.jpg";
+  const hero = event?.hero_image_url || "/brand/logo.jpeg";
   const lat = event?.weather_latitude || 48.6778281;
   const lon = event?.weather_longitude || 9.21833;
 
