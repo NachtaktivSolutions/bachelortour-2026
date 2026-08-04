@@ -59,7 +59,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     <div className="app-shell">
       <header className="topbar">
         <Link href="/" className="brand-lockup">
-          <img className="brand-tour-icon" src="/brand/brand-icon.png" alt="" />
+          <img className="brand-tour-icon" src="/api/branding/icon" alt="" />
           <div><span className="eyebrow">FIRESTARTER 26</span><strong>Bachelortour 2026</strong></div>
         </Link>
         <div className="top-actions">
