@@ -10,42 +10,49 @@ import { createClient } from "@/lib/supabase/client";
 import type { ChatMessage } from "@/lib/types";
 
 export default function ChatPage() {
-  const { profile, refreshProfile } = useApp();
+  const { profile } = useApp();
   const [messages,setMessages]=useState<ChatMessage[]>([]);
   const [uploading,setUploading]=useState(false);
   const [emojiOpen,setEmojiOpen]=useState(false);
   const [text,setText]=useState("");
-  const end=useRef<HTMLDivElement>(null);
+  const [initialScrollDone,setInitialScrollDone]=useState(false);
+  const listRef=useRef<HTMLDivElement>(null);
   const supabase=createClient();
 
   const markRead = useCallback(async () => {
     if (!profile) return;
-    const now = new Date().toISOString();
-    await supabase.from("profiles").update({ chat_last_read_at: now }).eq("id", profile.id);
+    await supabase.from("profiles").update({ chat_last_read_at: new Date().toISOString() }).eq("id", profile.id);
     window.dispatchEvent(new Event("chat-read"));
-    await refreshProfile();
-  }, [profile, refreshProfile, supabase]);
+  }, [profile?.id, supabase]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (scrollForNew = false) => {
+    const container = listRef.current;
+    const wasNearBottom = container ? container.scrollHeight - container.scrollTop - container.clientHeight < 120 : true;
     const { data } = await supabase.from("chat_messages").select("*, profiles(name,avatar_url)").order("created_at").limit(300);
     setMessages((data as ChatMessage[]) ?? []);
     await markRead();
-  }, [markRead, supabase]);
+    window.requestAnimationFrame(() => {
+      const current = listRef.current;
+      if (!current) return;
+      if (!initialScrollDone || (scrollForNew && wasNearBottom)) current.scrollTop = current.scrollHeight;
+      if (!initialScrollDone) setInitialScrollDone(true);
+    });
+  }, [initialScrollDone, markRead, supabase]);
 
   useEffect(() => {
-    load();
+    load(false);
     const channel=supabase.channel("chat")
-      .on("postgres_changes",{event:"INSERT",schema:"public",table:"chat_messages"},load)
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"chat_messages"},()=>load(true))
       .subscribe();
-    return()=>{supabase.removeChannel(channel)};
-  },[load,supabase]);
-
-  useEffect(()=>end.current?.scrollIntoView({behavior:"smooth"}),[messages]);
+    const onVisible=()=>{ if(document.visibilityState==="visible") markRead(); };
+    document.addEventListener("visibilitychange",onVisible);
+    return()=>{document.removeEventListener("visibilitychange",onVisible);supabase.removeChannel(channel)};
+  },[load,markRead,supabase]);
 
   async function send(e:FormEvent<HTMLFormElement>){
     e.preventDefault();const body=text.trim();if(!body||!profile)return;
-    await supabase.from("chat_messages").insert({body,sender_id:profile.id});
-    setText("");setEmojiOpen(false);
+    const {error}=await supabase.from("chat_messages").insert({body,sender_id:profile.id});
+    if(!error){setText("");setEmojiOpen(false);window.setTimeout(()=>{const c=listRef.current;if(c)c.scrollTop=c.scrollHeight},50)}
   }
 
   async function sendImage(e:ChangeEvent<HTMLInputElement>){
@@ -60,9 +67,12 @@ export default function ChatPage() {
     setUploading(false);e.target.value="";
   }
 
-  return <AuthGate><Shell><div className="page-heading"><span className="eyebrow">FIRESTARTER-GRUPPE</span><h1>Gruppenchat</h1><p>Wo seid ihr? Wer bestellt die nächste Runde?</p></div>
-    <div className="chat-list">{messages.map(m=><div key={m.id} className={`message-row ${m.sender_id===profile?.id?"own":""}`}>{m.sender_id!==profile?.id&&<div className="avatar chat-avatar">{m.profiles?.avatar_url?<img src={m.profiles.avatar_url} alt=""/>:<span>{m.profiles?.name?.[0]||"?"}</span>}</div>}<div className={`message ${m.sender_id===profile?.id?"own":""}`}><strong>{m.sender_id===profile?.id?"Du":m.profiles?.name}</strong>{m.image_url&&<img className="chat-image" src={m.image_url} alt="Chatfoto"/>}{m.body&&m.body!=="📷 Foto"&&<p>{m.body}</p>}<small>{new Date(m.created_at).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})}</small></div></div>)}<div ref={end}/></div>
-    {emojiOpen&&<EmojiPicker onPick={emoji=>setText(t=>t+emoji)}/>}
-    <form className="chat-composer" onSubmit={send}><label className="composer-image"><ImagePlus/><input type="file" accept="image/*" capture="environment" onChange={sendImage}/></label><button type="button" className="composer-emoji" onClick={()=>setEmojiOpen(v=>!v)}><Smile/></button><input value={text} onChange={e=>setText(e.target.value)} placeholder={uploading?"Foto wird hochgeladen …":"Nachricht schreiben …"} autoComplete="off" disabled={uploading}/><button aria-label="Senden"><Send/></button></form>
+  return <AuthGate><Shell>
+    <div className="chat-page-shell">
+      <div className="page-heading chat-heading"><span className="eyebrow">FIRESTARTER-GRUPPE</span><h1>Gruppenchat</h1><p>Wo seid ihr? Wer bestellt die nächste Runde?</p></div>
+      <div className="chat-list" ref={listRef}>{messages.map(m=><div key={m.id} className={`message-row ${m.sender_id===profile?.id?"own":""}`}>{m.sender_id!==profile?.id&&<div className="avatar chat-avatar">{m.profiles?.avatar_url?<img src={m.profiles.avatar_url} alt=""/>:<span>{m.profiles?.name?.[0]||"?"}</span>}</div>}<div className={`message ${m.sender_id===profile?.id?"own":""}`}><strong>{m.sender_id===profile?.id?"Du":m.profiles?.name}</strong>{m.image_url&&<img className="chat-image" src={m.image_url} alt="Chatfoto"/>}{m.body&&m.body!=="📷 Foto"&&<p>{m.body}</p>}<small>{new Intl.DateTimeFormat("de-DE",{timeZone:"Europe/Berlin",hour:"2-digit",minute:"2-digit"}).format(new Date(m.created_at))}</small></div></div>)}</div>
+      {emojiOpen&&<EmojiPicker onPick={emoji=>setText(t=>t+emoji)}/>} 
+      <form className="chat-composer" onSubmit={send}><label className="composer-image"><ImagePlus/><input type="file" accept="image/*" capture="environment" onChange={sendImage}/></label><button type="button" className="composer-emoji" onClick={()=>setEmojiOpen(v=>!v)}><Smile/></button><input value={text} onChange={e=>setText(e.target.value)} placeholder={uploading?"Foto wird hochgeladen …":"Nachricht schreiben …"} autoComplete="off" disabled={uploading}/><button aria-label="Senden"><Send/></button></form>
+    </div>
   </Shell></AuthGate>;
 }
