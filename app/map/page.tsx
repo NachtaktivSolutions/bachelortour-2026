@@ -25,7 +25,7 @@ export default function MapPage() {
     const now=new Date().toISOString();
     const [pinResult, programResult, memberResult] = await Promise.all([
       supabase.from("map_pins").select("*").or("ends_at.is.null,ends_at.gte."+now).order("starts_at"),
-      supabase.from("program_items").select("*").or("ends_at.is.null,ends_at.gte."+now).order("starts_at"),
+      supabase.from("program_items").select("*").eq("is_visible",true).or("ends_at.is.null,ends_at.gte."+now).order("starts_at"),
       supabase.from("profiles").select("*").eq("share_location", true)
     ]);
     const firstError = pinResult.error || programResult.error || memberResult.error;
@@ -38,7 +38,7 @@ export default function MapPage() {
 
   useEffect(() => {
     load();
-    const channel=supabase.channel("live-map-v30")
+    const channel=supabase.channel("live-map-v33")
       .on("postgres_changes",{event:"*",schema:"public",table:"profiles"},load)
       .on("postgres_changes",{event:"*",schema:"public",table:"map_pins"},load)
       .on("postgres_changes",{event:"*",schema:"public",table:"program_items"},load).subscribe();
