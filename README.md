@@ -115,3 +115,28 @@ V2 ergänzt:
 Ab V3 erstellt Supabase das Profil serverseitig über einen Trigger. Das Frontend muss keinen
 RLS-geschützten Insert mehr durchführen. Name und Telefonnummer werden sicher aus den
 Registrierungs-Metadaten übernommen.
+
+
+## Firestarter V4
+
+1. `supabase/migration_v4_all_features.sql` im Supabase SQL Editor ausführen.
+2. V4-Dateien komplett nach GitHub kopieren und vorhandene Dateien ersetzen.
+3. Im Adminbereich den Spotify-Playlist-Link bei Tourdaten eintragen.
+4. Wetter kommt ohne API-Key über Open-Meteo.
+5. Der erste Programmpunkt "Anleuchten bei Oli" am 07.08.2026 um 18:00 Uhr wird automatisch angelegt.
+
+
+## Firestarter V5
+
+V5 behebt:
+- eigenen Live-Standort auf der Karte
+- klickbare Kartenmarker mit Google-Maps-Navigation
+- Programmpunkte zusätzlich auf der Karte
+- zuverlässiges Laden und sofortiges Anzeigen hochgeladener Fotos
+- Galerie-Fehleranzeige und Aktualisieren-Schaltfläche
+- Klick auf Profilbild oben rechts öffnet `/profile`
+
+Einrichtung:
+1. `supabase/migration_v5_map_gallery.sql` in Supabase ausführen.
+2. V5-Dateien vollständig nach GitHub kopieren und ersetzen.
+3. Commit / Push; Vercel deployt automatisch.

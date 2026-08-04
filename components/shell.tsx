@@ -36,9 +36,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <Link className="icon-button admin-button" href="/admin" aria-label="Adminbereich"><Shield size={20} /></Link>
           )}
           <button className="icon-button logout-button" onClick={logout} aria-label="Abmelden"><LogOut size={19} /></button>
-          <div className="avatar">
+          <Link href="/profile" className="avatar" aria-label="Mein Profil" title="Mein Profil">
             {profile?.avatar_url ? <img src={profile.avatar_url} alt="" /> : <span>{profile?.name?.slice(0,1) ?? "?"}</span>}
-          </div>
+          </Link>
         </div>
       </header>
       <main className="page-content">{children}</main>

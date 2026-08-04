@@ -17,8 +17,22 @@ export type EventSettings = {
   subtitle: string | null;
   description: string | null;
   hero_image_url: string | null;
+  spotify_url: string | null;
+  weather_latitude: number | null;
+  weather_longitude: number | null;
   starts_at: string;
   updated_at: string;
+};
+
+export type ProgramItem = {
+  id: string;
+  title: string;
+  description: string | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  starts_at: string;
+  created_at: string;
 };
 
 export type NewsItem = {
@@ -40,6 +54,15 @@ export type ChatMessage = {
   profiles?: Pick<Profile, "name" | "avatar_url"> | null;
 };
 
+export type PhotoComment = {
+  id: string;
+  photo_id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+  profiles?: Pick<Profile, "name" | "avatar_url"> | null;
+};
+
 export type Photo = {
   id: string;
   image_url: string;
@@ -48,12 +71,14 @@ export type Photo = {
   uploader_id: string;
   profiles?: Pick<Profile, "name" | "avatar_url"> | null;
   photo_likes?: { user_id: string }[];
+  photo_comments?: PhotoComment[];
 };
 
 export type MapPin = {
   id: string;
   title: string;
   description: string | null;
+  address: string | null;
   latitude: number;
   longitude: number;
   starts_at: string | null;
