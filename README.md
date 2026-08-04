@@ -79,3 +79,22 @@ Dann `http://localhost:3000` öffnen.
 ## Wichtiger Hinweis zum gelieferten Bild
 
 Das von dir bereitgestellte Bild enthält sichtbare Stockfoto-Wasserzeichen. Es ist technisch eingebunden, sollte aber vor einer öffentlichen Veröffentlichung durch ein eigenes oder lizenziertes Motiv ersetzt werden.
+
+
+## Firestarter V2 einspielen
+
+1. In Supabase den SQL Editor öffnen.
+2. `supabase/migration_v2.sql` komplett ausführen.
+3. Danach den gesamten Projektinhalt zu GitHub hochladen und committen.
+4. Vercel baut automatisch neu.
+
+V2 ergänzt:
+- Premium Firestarter-Startseite
+- dynamisch bearbeitbare Tourdaten
+- News optional mit Push
+- Termine optional mit Push
+- freie Admin-Pushs
+- Chat-Foto-Upload
+- Galerie-Likes
+- Admin-Verwaltung
+- Push-Aktivierung für Teilnehmer

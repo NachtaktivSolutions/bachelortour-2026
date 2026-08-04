@@ -11,6 +11,16 @@ export type Profile = {
   created_at: string;
 };
 
+export type EventSettings = {
+  id: number;
+  title: string;
+  subtitle: string | null;
+  description: string | null;
+  hero_image_url: string | null;
+  starts_at: string;
+  updated_at: string;
+};
+
 export type NewsItem = {
   id: string;
   title: string;
@@ -18,6 +28,7 @@ export type NewsItem = {
   image_url: string | null;
   created_at: string;
   author_id: string;
+  profiles?: Pick<Profile, "name" | "avatar_url"> | null;
 };
 
 export type ChatMessage = {
@@ -36,6 +47,7 @@ export type Photo = {
   created_at: string;
   uploader_id: string;
   profiles?: Pick<Profile, "name" | "avatar_url"> | null;
+  photo_likes?: { user_id: string }[];
 };
 
 export type MapPin = {

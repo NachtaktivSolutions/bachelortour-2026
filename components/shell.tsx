@@ -11,7 +11,7 @@ const nav = [
   { href: "/map", label: "Karte", icon: Map },
   { href: "/chat", label: "Chat", icon: MessageCircle },
   { href: "/gallery", label: "Fotos", icon: Images },
-  { href: "/members", label: "Mitglieder", icon: Users }
+  { href: "/members", label: "Jungs", icon: Users }
 ];
 
 export function Shell({ children }: { children: React.ReactNode }) {
@@ -27,15 +27,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div>
-          <span className="eyebrow">FIRESTARTER 26</span>
-          <strong>Bachelortour 2026</strong>
-        </div>
+        <Link href="/" className="brand-lockup">
+          <span className="brand-flame">🔥</span>
+          <div><span className="eyebrow">FIRESTARTER 26</span><strong>Bachelortour 2026</strong></div>
+        </Link>
         <div className="top-actions">
           {profile?.is_admin && (
             <Link className="icon-button admin-button" href="/admin" aria-label="Adminbereich"><Shield size={20} /></Link>
           )}
-          <button className="icon-button" onClick={logout} aria-label="Abmelden"><LogOut size={20} /></button>
+          <button className="icon-button logout-button" onClick={logout} aria-label="Abmelden"><LogOut size={19} /></button>
           <div className="avatar">
             {profile?.avatar_url ? <img src={profile.avatar_url} alt="" /> : <span>{profile?.name?.slice(0,1) ?? "?"}</span>}
           </div>
