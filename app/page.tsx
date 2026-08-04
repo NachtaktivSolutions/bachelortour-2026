@@ -6,7 +6,6 @@ import { AuthGate } from "@/components/auth-gate";
 import { Shell } from "@/components/shell";
 import { Countdown } from "@/components/countdown";
 import { LocationSharing } from "@/components/location-sharing";
-import { PushEnable } from "@/components/push-enable";
 import { WeatherCard } from "@/components/weather-card";
 import { SpotifyCard } from "@/components/spotify-card";
 import { useApp } from "@/components/app-provider";
@@ -43,31 +42,66 @@ export default function HomePage() {
   const lat = event?.weather_latitude || 48.6778281;
   const lon = event?.weather_longitude || 9.21833;
 
-  return <AuthGate><Shell>
-    <section className="hero premium-hero" style={{ backgroundImage: `linear-gradient(180deg,rgba(0,0,0,.06),rgba(0,0,0,.97)),url("${hero}")` }}>
-      <div className="hero-fire-glow" /><div className="hero-overlay"><span className="eyebrow">DER COUNTDOWN LÄUFT</span><h1>{event?.title || "Bachelortour 2026"}</h1><p>{event?.subtitle || `Willkommen, ${profile?.name?.split(" ")[0] ?? "Jungs"} – das wird legendär.`}</p><Countdown startsAt={event?.starts_at}/><div className="hero-actions"><LocationSharing/><PushEnable/></div></div>
-    </section>
+  return (
+    <AuthGate>
+      <Shell>
+        <section className="hero premium-hero" style={{ backgroundImage: `linear-gradient(180deg,rgba(0,0,0,.06),rgba(0,0,0,.97)),url("${hero}")` }}>
+          <div className="hero-fire-glow" />
+          <div className="hero-overlay">
+            <span className="eyebrow">DER COUNTDOWN LÄUFT</span>
+            <h1>{event?.title || "Bachelortour 2026"}</h1>
+            <p>{event?.subtitle || `Willkommen, ${profile?.name?.split(" ")[0] ?? "Bachelor"} – das wird legendär.`}</p>
+            <Countdown startsAt={event?.starts_at}/>
+            <div className="hero-actions"><LocationSharing/></div>
+          </div>
+        </section>
 
-    <section className="quick-stats">
-      <Link href="/members"><Users/><strong>{memberCount}</strong><span>Jungs</span></Link>
-      <Link href="/gallery"><Images/><strong>{photos.length}+</strong><span>Neue Fotos</span></Link>
-      <Link href="/chat"><MessageCircle/><strong>Live</strong><span>Gruppenchat</span></Link>
-    </section>
+        <section className="quick-stats">
+          <Link href="/members"><Users/><strong>{memberCount}</strong><span>Bachelor</span></Link>
+          <Link href="/gallery"><Images/><strong>{photos.length}+</strong><span>Neue Fotos</span></Link>
+          <Link href="/chat"><MessageCircle/><strong>Live</strong><span>Gruppenchat</span></Link>
+        </section>
 
-    <WeatherCard latitude={lat} longitude={lon}/>
-    <SpotifyCard url={event?.spotify_url}/>
+        <WeatherCard latitude={lat} longitude={lon}/>
+        <SpotifyCard url={event?.spotify_url}/>
 
-    <section className="section">
-      <div className="section-title"><CalendarClock size={20}/><h2>Nächster Programmpunkt</h2><Link className="section-link" href="/program">Ganzer Plan <ChevronRight size={17}/></Link></div>
-      {nextItem ? <article className="next-event-card">
-        <div className="event-time">{new Date(nextItem.starts_at).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})}</div>
-        <div className="event-copy"><h3>{nextItem.title}</h3><p>{nextItem.description}</p><small>{nextItem.address}</small></div>
-        {nextItem.address&&<a className="round-action" href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(nextItem.address)}`} target="_blank"><Navigation/></a>}
-      </article> : <div className="empty-card">Noch kein Termin eingetragen.</div>}
-    </section>
+        <section className="section">
+          <div className="section-title">
+            <CalendarClock size={20}/><h2>Nächster Programmpunkt</h2>
+            <Link className="section-link" href="/program">Ganzer Plan <ChevronRight size={17}/></Link>
+          </div>
+          {nextItem ? (
+            <article className="next-event-card">
+              <div className="event-time">{new Date(nextItem.starts_at).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})}</div>
+              <div className="event-copy"><h3>{nextItem.title}</h3><p>{nextItem.description}</p><small>{nextItem.address}</small></div>
+              {nextItem.address && <a className="round-action" href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(nextItem.address)}`} target="_blank"><Navigation/></a>}
+            </article>
+          ) : <div className="empty-card">Noch kein Termin eingetragen.</div>}
+        </section>
 
-    <section className="section"><div className="section-title"><Bell size={20}/><h2>Neuigkeiten</h2></div><div className="news-stack">{news.length ? news.map(item => <article className="news-card" key={item.id}>{item.image_url&&<img src={item.image_url} alt=""/>}<div className="news-content"><div className="news-meta"><span>{item.profiles?.name||"Admin"}</span><small>{new Date(item.created_at).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</small></div><h3>{item.title}</h3><p>{item.body}</p></div></article>) : <div className="empty-card">Noch keine Neuigkeiten – die Ruhe vor dem Sturm.</div>}</div></section>
+        <section className="section">
+          <div className="section-title"><Bell size={20}/><h2>Neuigkeiten</h2></div>
+          <div className="news-stack">
+            {news.length ? news.map(item => (
+              <article className="news-card" key={item.id}>
+                {item.image_url && <img src={item.image_url} alt=""/>}
+                <div className="news-content">
+                  <div className="news-meta"><span>{item.profiles?.name||"Admin"}</span><small>{new Date(item.created_at).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</small></div>
+                  <h3>{item.title}</h3><p>{item.body}</p>
+                </div>
+              </article>
+            )) : <div className="empty-card">Noch keine Neuigkeiten – die Ruhe vor dem Sturm.</div>}
+          </div>
+        </section>
 
-    <section className="section"><div className="section-title"><Images size={20}/><h2>Frische Beweise</h2><Link className="section-link" href="/gallery">Alle <ChevronRight size={17}/></Link></div><div className="home-photo-strip">{photos.map(photo=><img key={photo.id} src={photo.image_url} alt="Tourfoto" loading="lazy"/>)}{!photos.length&&<div className="empty-card">Noch keine Fotos hochgeladen.</div>}</div></section>
-  </Shell></AuthGate>;
+        <section className="section">
+          <div className="section-title"><Images size={20}/><h2>Frische Beweise</h2><Link className="section-link" href="/gallery">Alle <ChevronRight size={17}/></Link></div>
+          <div className="home-photo-strip">
+            {photos.map(photo => <img key={photo.id} src={photo.image_url} alt="Tourfoto" loading="lazy"/>)}
+            {!photos.length && <div className="empty-card">Noch keine Fotos hochgeladen.</div>}
+          </div>
+        </section>
+      </Shell>
+    </AuthGate>
+  );
 }
