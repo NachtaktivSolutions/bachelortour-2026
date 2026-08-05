@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Flame, X } from "lucide-react";
+import { useApp } from "./app-provider";
 
-const STORAGE_KEY="firestarter-app-tour-v3";
+const STORAGE_KEY="firestarter-app-tour-v4";
 
 type Step={title:string;text:string;path:string;target?:string;emoji:string};
 
@@ -20,7 +21,13 @@ const steps:Step[]=[
  {title:"Push & Geräteprüfung",text:"Push aktivieren und Standort sowie Benachrichtigungen prüfen.",path:"/profile",target:".profile-setting-card",emoji:"🔔"}
 ];
 
+function isStandalone(){
+ if(typeof window==="undefined")return false;
+ return window.matchMedia("(display-mode: standalone)").matches||(window.navigator as Navigator&{standalone?:boolean}).standalone===true;
+}
+
 export function AppTour(){
+ const {session,profile,loading}=useApp();
  const router=useRouter();
  const pathname=usePathname();
  const [mounted,setMounted]=useState(false);
@@ -30,16 +37,39 @@ export function AppTour(){
  const [rect,setRect]=useState<DOMRect|null>(null);
  const [ready,setReady]=useState(false);
  const finaleTimer=useRef<number|null>(null);
- const current=steps[step];
+ const openTimer=useRef<number|null>(null);
+ const current=steps[step]??steps[0];
+
+ useEffect(()=>{setMounted(true)},[]);
 
  useEffect(()=>{
-  setMounted(true);
-  const forced=new URLSearchParams(location.search).get("tour")==="1";
-  if(forced||localStorage.getItem(STORAGE_KEY)!=="done"){
-   const timer=window.setTimeout(()=>setOpen(true),500);
-   return()=>window.clearTimeout(timer);
-  }
- },[]);
+  if(!mounted||loading||!session||!profile||open)return;
+  if(pathname==="/login"||pathname==="/register"||pathname.startsWith("/auth"))return;
+
+  const forced=new URLSearchParams(window.location.search).get("tour")==="1";
+  const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const installed=!mobile||isStandalone();
+  const setupKey=`firestarter-device-setup-v2:${session.user.id}`;
+  const setupComplete=localStorage.getItem(setupKey)==="done";
+  const tourComplete=localStorage.getItem(STORAGE_KEY)==="done";
+
+  if(!forced&&(!installed||!setupComplete||tourComplete))return;
+  openTimer.current=window.setTimeout(()=>setOpen(true),650);
+  return()=>{if(openTimer.current)window.clearTimeout(openTimer.current)};
+ },[mounted,loading,session,profile,pathname,open]);
+
+ useEffect(()=>{
+  if(!mounted||loading||!session||!profile||open)return;
+  const retry=()=>{
+   const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+   const setupKey=`firestarter-device-setup-v2:${session.user.id}`;
+   if((!mobile||isStandalone())&&localStorage.getItem(setupKey)==="done"&&localStorage.getItem(STORAGE_KEY)!=="done"){
+    setOpen(true);
+   }
+  };
+  window.addEventListener("firestarter-device-setup-complete",retry);
+  return()=>window.removeEventListener("firestarter-device-setup-complete",retry);
+ },[mounted,loading,session,profile,open]);
 
  useEffect(()=>{
   if(!open)return;
@@ -72,7 +102,7 @@ export function AppTour(){
  },[open,finale,updateTarget]);
 
  const placement=useMemo(()=>{
-  if(!rect)return"center";
+  if(!rect||typeof window==="undefined")return"center";
   const freeAbove=Math.max(0,rect.top-110);
   const freeBelow=Math.max(0,window.innerHeight-(rect.bottom+105));
   return freeBelow>=freeAbove?"bottom":"top";
@@ -80,6 +110,7 @@ export function AppTour(){
 
  function close(){
   if(finaleTimer.current)window.clearTimeout(finaleTimer.current);
+  if(openTimer.current)window.clearTimeout(openTimer.current);
   localStorage.setItem(STORAGE_KEY,"done");
   setOpen(false);setFinale(false);setStep(0);setRect(null);
   history.replaceState({},"",location.pathname);
@@ -88,7 +119,7 @@ export function AppTour(){
  function changeStep(nextStep:number){setRect(null);setReady(false);setStep(Math.max(0,Math.min(steps.length-1,nextStep)))}
  function next(){if(step<steps.length-1){changeStep(step+1);return}setFinale(true);setRect(null);finaleTimer.current=window.setTimeout(close,7200)}
 
- if(!mounted||!open)return null;
+ if(!mounted||!open||!session||!profile)return null;
  const maxSpotHeight=Math.min(rect?.height??0,Math.max(100,window.innerHeight*.42));
  const spotlight=rect?{left:Math.max(10,rect.left-8),top:Math.max(10,rect.top-8),width:Math.min(window.innerWidth-20,rect.width+16),height:maxSpotHeight+16}:undefined;
 
