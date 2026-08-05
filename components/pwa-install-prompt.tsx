@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Download, Share, Smartphone, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Download, Share, Smartphone } from "lucide-react";
 import { useApp } from "./app-provider";
 
 type InstallPromptEvent = Event & {
@@ -15,55 +15,49 @@ export function PwaInstallPrompt() {
   const [installEvent,setInstallEvent]=useState<InstallPromptEvent|null>(null);
   const [isIos,setIsIos]=useState(false);
 
-  const storageKey=useMemo(()=>profile?.id?`firestarter-pwa-prompt-seen:${profile.id}`:"",[profile?.id]);
-
   useEffect(()=>{
-    if(!profile||!storageKey)return;
+    if(!profile)return;
     const standalone=window.matchMedia("(display-mode: standalone)").matches || (window.navigator as Navigator & {standalone?:boolean}).standalone===true;
-    if(standalone||localStorage.getItem(storageKey)==="1")return;
+    if(standalone)return;
 
     const ua=window.navigator.userAgent;
-    const ios=/iPad|iPhone|iPod/.test(ua) || (navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
-    setIsIos(ios);
-
-    const show=window.setTimeout(()=>{
-      localStorage.setItem(storageKey,"1");
-      setVisible(true);
-    },1200);
+    setIsIos(/iPad|iPhone|iPod/.test(ua) || (navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1));
 
     const beforeInstall=(event:Event)=>{
       event.preventDefault();
       setInstallEvent(event as InstallPromptEvent);
+      setVisible(true);
     };
+    const installed=()=>{setVisible(false);window.setTimeout(()=>window.location.reload(),500)};
     window.addEventListener("beforeinstallprompt",beforeInstall);
-    return()=>{window.clearTimeout(show);window.removeEventListener("beforeinstallprompt",beforeInstall)};
-  },[profile,storageKey]);
+    window.addEventListener("appinstalled",installed);
+    const timer=window.setTimeout(()=>setVisible(true),700);
+    return()=>{window.clearTimeout(timer);window.removeEventListener("beforeinstallprompt",beforeInstall);window.removeEventListener("appinstalled",installed)};
+  },[profile]);
 
   async function install(){
     if(!installEvent)return;
     await installEvent.prompt();
-    await installEvent.userChoice;
-    setVisible(false);
-    setInstallEvent(null);
+    const choice=await installEvent.userChoice;
+    if(choice.outcome==="accepted")setVisible(false);
   }
 
   if(!visible)return null;
 
   return <div className="pwa-install-backdrop" role="dialog" aria-modal="true" aria-label="Firestarter 2026 installieren">
-    <section className="pwa-install-card">
-      <button type="button" className="pwa-install-close" onClick={()=>setVisible(false)} aria-label="Schließen"><X/></button>
+    <section className="pwa-install-card simple-onboarding-card">
       <img src="/api/branding/icon" alt="Firestarter 2026" className="pwa-install-logo"/>
-      <span className="eyebrow">SCHNELLER ZUR TOUR</span>
-      <h2>Firestarter 2026 installieren</h2>
-      <p>Speichere die App auf deinem Home-Bildschirm – für Vollbildansicht, Push-Nachrichten und schnellen Zugriff.</p>
+      <span className="eyebrow">SCHRITT 1 VON 3</span>
+      <h2>App installieren</h2>
+      <p>Bitte zuerst die App installieren. Danach führen wir dich automatisch durch Standort und Mitteilungen.</p>
 
-      {installEvent?<button type="button" className="primary-button pwa-install-main" onClick={install}><Download/>Jetzt installieren</button>:isIos?<div className="pwa-ios-guide">
-        <div><span>1</span><Share/><p>Unten in Safari auf <strong>Teilen</strong> tippen.</p></div>
-        <div><span>2</span><Smartphone/><p><strong>Zum Home-Bildschirm</strong> auswählen.</p></div>
-        <div><span>3</span><strong>＋</strong><p>Oben rechts mit <strong>Hinzufügen</strong> bestätigen.</p></div>
-      </div>:<div className="pwa-generic-guide"><Smartphone/><p>Öffne das Browsermenü und wähle <strong>App installieren</strong> oder <strong>Zum Startbildschirm hinzufügen</strong>.</p></div>}
+      {installEvent?<button type="button" className="primary-button pwa-install-main" onClick={install}><Download/>App jetzt installieren</button>:isIos?<div className="pwa-ios-guide">
+        <div><span>1</span><Share/><p>Unten auf <strong>Teilen</strong> tippen.</p></div>
+        <div><span>2</span><Smartphone/><p><strong>Zum Home-Bildschirm</strong> wählen.</p></div>
+        <div><span>3</span><strong>＋</strong><p>Mit <strong>Hinzufügen</strong> bestätigen.</p></div>
+      </div>:<div className="pwa-generic-guide"><Smartphone/><p>Oben rechts auf <strong>⋮</strong> tippen und <strong>App installieren</strong> auswählen.</p></div>}
 
-      <button type="button" className="secondary-button pwa-install-later" onClick={()=>setVisible(false)}>Nicht jetzt</button>
+      <small className="onboarding-help">Danach die neue Firestarter-App vom Startbildschirm öffnen.</small>
     </section>
   </div>;
 }
