@@ -35,17 +35,10 @@ export default function PackingAdminPage(){
   async function reminder(){setBusy(true);try{await push("Pack-Reminder ⏰","Denkt daran, eure Packliste zu prüfen. Alles mit Haken ist schon im Gepäck.");setStatus("Erinnerungs-Push wurde versendet.")}catch(error){setStatus(error instanceof Error?error.message:"Fehler")}setBusy(false)}
 
   async function saveCategoryOrder(next:Category[]){setCategories(next);const updates=await Promise.all(next.map((category,index)=>supabase.from("packing_categories").update({sort_order:index}).eq("id",category.id)));const error=updates.find(result=>result.error)?.error;setStatus(error?error.message:"Rubrik-Reihenfolge gespeichert.");if(error)await load()}
-
   async function dropCategory(targetId:string){if(!dragging||dragging.type!=="category"||dragging.id===targetId)return;const from=categories.findIndex(category=>category.id===dragging.id);const to=categories.findIndex(category=>category.id===targetId);if(from<0||to<0)return;const next=[...categories];const [moved]=next.splice(from,1);next.splice(to,0,moved);setDragging(null);await saveCategoryOrder(next)}
 
-  async function persistItems(next:Item[]){setItems(next);const grouped=new Map<string,Item[]>();next.forEach(item=>grouped.set(item.category_id,[...(grouped.get(item.category_id)||[]),item]));const updates=[] as ReturnType<typeof supabase.from>[];
-    const promises:Array<PromiseLike<{error:any}>>=[];
-    grouped.forEach((group,categoryId)=>group.forEach((item,index)=>promises.push(supabase.from("packing_items").update({category_id:categoryId,sort_order:index}).eq("id",item.id))));
-    const results=await Promise.all(promises);const error=results.find(result=>result.error)?.error;setStatus(error?error.message:"Packlisten-Reihenfolge gespeichert.");if(error)await load();void updates;
-  }
-
+  async function persistItems(next:Item[]){setItems(next);const grouped=new Map<string,Item[]>();next.forEach(item=>grouped.set(item.category_id,[...(grouped.get(item.category_id)||[]),item]));const promises:PromiseLike<{error:unknown}>[]=[];grouped.forEach((group,categoryId)=>group.forEach((item,index)=>promises.push(supabase.from("packing_items").update({category_id:categoryId,sort_order:index}).eq("id",item.id))));const results=await Promise.all(promises);const error=results.find(result=>result.error)?.error;setStatus(error?String(error):"Packlisten-Reihenfolge gespeichert.");if(error)await load()}
   async function dropItem(targetId:string){if(!dragging||dragging.type!=="item"||dragging.id===targetId)return;const moved=items.find(item=>item.id===dragging.id);const target=items.find(item=>item.id===targetId);if(!moved||!target)return;const without=items.filter(item=>item.id!==moved.id);const targetIndex=without.findIndex(item=>item.id===target.id);without.splice(targetIndex,0,{...moved,category_id:target.category_id});setDragging(null);await persistItems(without)}
-
   async function dropItemInCategory(categoryId:string){if(!dragging||dragging.type!=="item")return;const moved=items.find(item=>item.id===dragging.id);if(!moved)return;const without=items.filter(item=>item.id!==moved.id);let insertAt=without.length;for(let index=without.length-1;index>=0;index--){if(without[index].category_id===categoryId){insertAt=index+1;break}}without.splice(insertAt,0,{...moved,category_id:categoryId});setDragging(null);await persistItems(without)}
 
   return <AuthGate admin><Shell>
