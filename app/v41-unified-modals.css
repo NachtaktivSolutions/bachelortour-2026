@@ -7,13 +7,11 @@
   align-items:center!important;
   justify-content:center!important;
   padding:max(18px,env(safe-area-inset-top)) 16px max(18px,env(safe-area-inset-bottom))!important;
-  overflow-y:auto!important;
-  overscroll-behavior:contain!important;
-  -webkit-overflow-scrolling:touch!important;
-  touch-action:pan-y!important;
-  background:rgba(0,0,0,.82)!important;
+  overflow:hidden!important;
+  background:rgba(0,0,0,.86)!important;
   backdrop-filter:blur(14px)!important;
   -webkit-backdrop-filter:blur(14px)!important;
+  touch-action:none!important;
 }
 
 .cropper-modal{
@@ -21,11 +19,12 @@
   width:min(100%,620px)!important;
   max-width:620px!important;
   max-height:calc(100dvh - max(36px,env(safe-area-inset-top)) - max(36px,env(safe-area-inset-bottom)))!important;
-  margin:auto!important;
+  margin:0!important;
   padding:24px!important;
+  box-sizing:border-box!important;
   overflow-x:hidden!important;
-  overflow-y:scroll!important;
-  overscroll-behavior:contain!important;
+  overflow-y:auto!important;
+  overscroll-behavior-y:contain!important;
   -webkit-overflow-scrolling:touch!important;
   touch-action:pan-y!important;
   border:1px solid rgba(255,122,0,.34)!important;
@@ -78,23 +77,42 @@
   grid-template-columns:minmax(0,.8fr) minmax(0,1.35fr)!important;gap:10px!important;
   margin:22px -24px 0!important;padding:14px 24px max(16px,env(safe-area-inset-bottom))!important;
   border-top:1px solid rgba(255,255,255,.1)!important;
-  background:linear-gradient(180deg,rgba(13,13,13,.82),#0d0d0d 26%)!important;
+  background:linear-gradient(180deg,rgba(13,13,13,.86),#0d0d0d 26%)!important;
   backdrop-filter:blur(10px)!important;-webkit-backdrop-filter:blur(10px)!important
 }
 .checkin-edit-modal .edit-modal-actions button{min-width:0!important;min-height:54px!important;margin:0!important;padding:12px!important;justify-content:center!important;font-size:clamp(.9rem,3.8vw,1.05rem)!important}
 
-html:has(.cropper-backdrop),body:has(.cropper-backdrop){overflow:hidden!important}
+/* Das Modal wird innerhalb von page-content gerendert. Dieser Kontext muss über Header und Navigation liegen. */
+.app-shell:has(.cropper-backdrop) .page-content{
+  position:relative!important;
+  z-index:2147482000!important;
+  isolation:auto!important;
+  transform:none!important;
+  filter:none!important;
+  contain:none!important;
+}
+.app-shell:has(.cropper-backdrop) .topbar,
+.app-shell:has(.cropper-backdrop) .bottom-nav,
+.app-shell:has(.cropper-backdrop) .participant-preview-banner{
+  z-index:1!important;
+  pointer-events:none!important;
+}
+.app-shell:has(.cropper-backdrop){overflow:hidden!important;height:100dvh!important}
+html:has(.cropper-backdrop),body:has(.cropper-backdrop){overflow:hidden!important;height:100%!important}
 
 @media(max-width:600px){
   .cropper-backdrop{
-    display:block!important;
+    align-items:flex-start!important;
     padding:max(8px,env(safe-area-inset-top)) 8px max(8px,env(safe-area-inset-bottom))!important;
   }
   .cropper-modal{
-    width:100%!important;max-width:none!important;
-    height:calc(100dvh - max(16px,env(safe-area-inset-top)) - max(16px,env(safe-area-inset-bottom)))!important;
-    max-height:none!important;margin:0!important;padding:20px 18px!important;
-    border-radius:24px!important;border-bottom:1px solid rgba(255,122,0,.34)!important;
+    width:100%!important;
+    max-width:none!important;
+    height:auto!important;
+    max-height:calc(100dvh - max(16px,env(safe-area-inset-top)) - max(16px,env(safe-area-inset-bottom)))!important;
+    margin:0!important;
+    padding:20px 18px!important;
+    border-radius:24px!important;
   }
   .checkin-edit-modal .edit-modal-actions{margin:20px -18px 0!important;padding:12px 18px max(14px,env(safe-area-inset-bottom))!important}
 }
