@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Cloud, CloudRain, CloudSun, Droplets, Sun, Snowflake, Wind } from "lucide-react";
+import { Cloud, CloudRain, CloudSun, Sun, Snowflake } from "lucide-react";
 
 type WeatherData = {
   temperature_2m: number;
@@ -56,12 +56,9 @@ export function WeatherCard({ latitude, longitude }: { latitude: number; longitu
       <div className="weather-main">
         <span className="eyebrow">AKTUELLES WETTER</span>
         <h3>{data ? `${Math.round(data.temperature_2m)} °C` : "Lädt …"}</h3>
-        <p>{data ? `${label(data.weather_code)} · gefühlt ${Math.round(data.apparent_temperature)} °C` : "Filderstadt-Sielmingen"}</p>
+        <p>{data ? label(data.weather_code) : "Wetter wird geladen"}</p>
+        {data&&<small>Gefühlt {Math.round(data.apparent_temperature)} °C</small>}
       </div>
-      {data && <div className="weather-details">
-        <span><Wind size={16}/>{Math.round(data.wind_speed_10m)} km/h</span>
-        <span><Droplets size={16}/>{Math.round(data.relative_humidity_2m)} %</span>
-      </div>}
     </article>
   );
 }
