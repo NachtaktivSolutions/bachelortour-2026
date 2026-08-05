@@ -29,15 +29,15 @@ export default function MapPage() {
     try{
       const now=new Date().toISOString();
       const [pinResult, programResult, memberResult] = await Promise.all([
-        supabase.from("map_pins").select("id,title,description,latitude,longitude,starts_at,ends_at,pin_type,created_at").or("ends_at.is.null,ends_at.gte."+now).order("starts_at"),
+        supabase.from("map_pins").select("id,title,description,address,latitude,longitude,starts_at,ends_at,pin_type,created_at").or("ends_at.is.null,ends_at.gte."+now).order("starts_at"),
         supabase.from("program_items").select("id,title,description,address,starts_at,ends_at,latitude,longitude,is_visible").eq("is_visible",true).or("ends_at.is.null,ends_at.gte."+now).order("starts_at"),
         supabase.from("profiles").select("id,name,avatar_url,latitude,longitude,location_updated_at,participant_status,status_updated_at,share_location").eq("share_location", true)
       ]);
       const firstError = pinResult.error || programResult.error || memberResult.error;
       setError(firstError?.message ?? "");
-      setPins((pinResult.data as MapPin[]) ?? []);
-      setProgramItems((programResult.data as ProgramItem[]) ?? []);
-      setMembers((memberResult.data as Profile[]) ?? []);
+      setPins((pinResult.data as unknown as MapPin[]) ?? []);
+      setProgramItems((programResult.data as unknown as ProgramItem[]) ?? []);
+      setMembers((memberResult.data as unknown as Profile[]) ?? []);
       lastLoadRef.current=Date.now();
       setLoading(false);
     }finally{loadingRef.current=false}
