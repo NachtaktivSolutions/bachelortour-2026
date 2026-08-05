@@ -9,6 +9,7 @@ type EasterEggProps={open:boolean;onClose:()=>void};
 export function EasterEgg({open,onClose}:EasterEggProps){
   const audioRef=useRef<HTMLAudioElement|null>(null);
   const videoRef=useRef<HTMLVideoElement|null>(null);
+  const backgroundVideoRef=useRef<HTMLVideoElement|null>(null);
   const [remaining,setRemaining]=useState(20);
 
   useEffect(()=>{
@@ -21,13 +22,13 @@ export function EasterEgg({open,onClose}:EasterEggProps){
     audio.currentTime=0;
     audioRef.current=audio;
 
-    const video=videoRef.current;
-    if(video){
+    const videos=[backgroundVideoRef.current,videoRef.current].filter(Boolean) as HTMLVideoElement[];
+    videos.forEach(video=>{
       video.currentTime=0;
       video.muted=true;
       video.volume=0;
       video.play().catch(()=>{});
-    }
+    });
     audio.play().catch(()=>{});
 
     const timer=window.setTimeout(onClose,20000);
@@ -44,7 +45,7 @@ export function EasterEgg({open,onClose}:EasterEggProps){
       audio.pause();
       audio.currentTime=0;
       audioRef.current=null;
-      if(video){video.pause();video.currentTime=0;}
+      videos.forEach(video=>{video.pause();video.currentTime=0;});
     };
   },[open,onClose]);
 
@@ -52,7 +53,8 @@ export function EasterEgg({open,onClose}:EasterEggProps){
 
   return createPortal(
     <div className="easter-overlay easter-video-mode" role="dialog" aria-modal="true" aria-label="Firestarter 2026 Easter Egg">
-      <video ref={videoRef} className="easter-video" src="/easter-egg.mp4" muted playsInline preload="auto" aria-hidden="true"/>
+      <video ref={backgroundVideoRef} className="easter-video easter-video-background" src="/easter-egg.mp4" muted playsInline preload="auto" aria-hidden="true"/>
+      <video ref={videoRef} className="easter-video easter-video-foreground" src="/easter-egg.mp4" muted playsInline preload="auto" aria-hidden="true"/>
       <div className="easter-video-vignette"/>
       <div className="easter-smoke smoke-a"/><div className="easter-smoke smoke-b"/>
       <div className="easter-embers" aria-hidden="true">{Array.from({length:24},(_,i)=><i key={i} style={{left:`${(i*37)%100}%`,animationDelay:`${(i%8)*.22}s`,animationDuration:`${3.6+(i%5)*.7}s`}}/>)}</div>
