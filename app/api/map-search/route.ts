@@ -11,9 +11,6 @@ export async function GET(req:NextRequest){
   if(!q)return NextResponse.json({error:"Suchbegriff fehlt."},{status:400});
 
   try{
-    // Für Geschäfte und POIs zuerst direkt in OpenStreetMap im Umkreis suchen.
-    // Nominatim liefert bei Kettennamen wie EDEKA/REWE oft nur einige ausgewählte Filialen
-    // und lässt die tatsächlich nächstgelegene Filiale aus.
     if(hasCenter){
       const nearby=await searchNearbyPoi(q,lat,lon);
       if(nearby.length){
@@ -36,8 +33,8 @@ export async function GET(req:NextRequest){
     url.searchParams.set("addressdetails","1");
 
     if(hasCenter){
-      const latDelta=0.18;
-      const lonDelta=0.28;
+      const latDelta=0.12;
+      const lonDelta=0.18;
       url.searchParams.set("viewbox",`${lon-lonDelta},${lat+latDelta},${lon+lonDelta},${lat-latDelta}`);
       url.searchParams.set("bounded","0");
     }
@@ -68,7 +65,8 @@ export async function GET(req:NextRequest){
 
 async function searchNearbyPoi(query:string,lat:number,lon:number){
   const escaped=escapeOverpassRegex(query);
-  const overpass=`[out:json][timeout:12];(nwr(around:20000,${lat},${lon})[name~"${escaped}",i];nwr(around:20000,${lat},${lon})[brand~"${escaped}",i];nwr(around:20000,${lat},${lon})[operator~"${escaped}",i];);out center tags 80;`;
+  const radius=12000;
+  const overpass=`[out:json][timeout:10];(nwr(around:${radius},${lat},${lon})[name~"${escaped}",i];nwr(around:${radius},${lat},${lon})[brand~"${escaped}",i];nwr(around:${radius},${lat},${lon})[operator~"${escaped}",i];);out center tags 120;`;
   const response=await fetch("https://overpass-api.de/api/interpreter",{
     method:"POST",
     headers:{"Content-Type":"application/x-www-form-urlencoded;charset=UTF-8","User-Agent":"Firestarter-2026-PWA"},
