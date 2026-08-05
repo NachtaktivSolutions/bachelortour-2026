@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Play, RotateCcw, Star, Trophy, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -11,9 +11,14 @@ type Props={open:boolean;onClose:()=>void};
 type Joint={x:number;y:number;speed:number;size:number;angle:number};
 type Shot={x:number;y:number};
 
+const BUS_SIZE=58;
+const BUS_WIDTH=BUS_SIZE*1.25;
+const BUS_HALF_WIDTH=BUS_WIDTH/2;
+const EDGE_PADDING=2;
+
 export function JointInvadersGame({open,onClose}:Props){
   const {profile}=useApp();
-  const supabase=createClient();
+  const supabase=useMemo(()=>createClient(),[]);
   const canvasRef=useRef<HTMLCanvasElement|null>(null);
   const frameRef=useRef<number|null>(null);
   const gameRef=useRef({running:false,busX:0,joints:[] as Joint[],shots:[] as Shot[],score:0,lives:3,lastSpawn:0,lastShot:0,lastTime:0});
@@ -52,7 +57,14 @@ export function JointInvadersGame({open,onClose}:Props){
     const canvas=canvasRef.current;const g=gameRef.current;if(!canvas||!g.running)return;
     const ctx=canvas.getContext("2d");if(!ctx)return;
     const dt=Math.min(32,now-g.lastTime);g.lastTime=now;
-    if(now-g.lastSpawn>Math.max(420,950-g.score*5)){g.lastSpawn=now;g.joints.push({x:32+Math.random()*(canvas.width-64),y:-40,speed:0.12+Math.random()*.08+g.score*.0008,size:34+Math.random()*13,angle:(Math.random()-.5)*.8})}
+    if(now-g.lastSpawn>Math.max(420,950-g.score*5)){
+      g.lastSpawn=now;
+      const size=34+Math.random()*13;
+      const jointHalfWidth=size*1.35/2;
+      const minX=jointHalfWidth+EDGE_PADDING;
+      const maxX=Math.max(minX,canvas.width-jointHalfWidth-EDGE_PADDING);
+      g.joints.push({x:minX+Math.random()*(maxX-minX),y:-40,speed:0.12+Math.random()*.08+g.score*.0008,size,angle:(Math.random()-.5)*.8})
+    }
     if(now-g.lastShot>300){g.lastShot=now;g.shots.push({x:g.busX,y:canvas.height-82})}
     g.shots.forEach(s=>s.y-=0.55*dt);g.joints.forEach(j=>j.y+=j.speed*dt);
     g.shots=g.shots.filter(s=>s.y>-30);g.joints=g.joints.filter(j=>{if(j.y>canvas.height+25){g.lives--;setLives(g.lives);return false}return true});
@@ -68,7 +80,7 @@ export function JointInvadersGame({open,onClose}:Props){
     ctx.fillStyle="#4cff853f";for(let i=0;i<42;i++){const x=(i*131+17)%canvas.width,y=(i*197+31)%canvas.height;ctx.beginPath();ctx.arc(x,y,i%4===0?2:1,0,Math.PI*2);ctx.fill()}
     g.joints.forEach(j=>drawJoint(ctx,j));
     g.shots.forEach(s=>drawLeaf(ctx,s.x,s.y,16));
-    drawBus(ctx,g.busX,canvas.height-46,58);
+    drawBus(ctx,g.busX,canvas.height-46,BUS_SIZE);
   }
 
   function drawJoint(ctx:CanvasRenderingContext2D,j:Joint){
@@ -101,7 +113,14 @@ export function JointInvadersGame({open,onClose}:Props){
   function roundRect(ctx:CanvasRenderingContext2D,x:number,y:number,w:number,h:number,r:number){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
 
   async function finishGame(){const finalScore=gameRef.current.score;stopGame();setStatus(`Game Over · ${finalScore} Punkte`);if(profile){await supabase.rpc("save_joint_invaders_score",{new_score:finalScore});await loadScores()}}
-  function move(clientX:number){const canvas=canvasRef.current;if(!canvas||!gameRef.current.running)return;const rect=canvas.getBoundingClientRect();const dpr=canvas.width/rect.width;gameRef.current.busX=Math.max(42*dpr,Math.min(canvas.width-42*dpr,(clientX-rect.left)*dpr))}
+  function move(clientX:number){
+    const canvas=canvasRef.current;if(!canvas||!gameRef.current.running)return;
+    const rect=canvas.getBoundingClientRect();const scale=canvas.width/rect.width;
+    const requestedX=(clientX-rect.left)*scale;
+    const minX=BUS_HALF_WIDTH+EDGE_PADDING;
+    const maxX=Math.max(minX,canvas.width-BUS_HALF_WIDTH-EDGE_PADDING);
+    gameRef.current.busX=Math.max(minX,Math.min(maxX,requestedX));
+  }
 
   const ownScore=highscores.find(row=>row.user_id===profile?.id)?.score??0;
   const ownRank=highscores.findIndex(row=>row.user_id===profile?.id)+1;
