@@ -26,7 +26,7 @@ export function TourRatingCard(){
   useEffect(()=>{setMounted(true);load();const channel=supabase.channel("tour-ratings-live").on("postgres_changes",{event:"*",schema:"public",table:"tour_ratings"},load).subscribe();return()=>{supabase.removeChannel(channel)}},[load,supabase]);
 
   const average=useMemo(()=>ratings.length?ratings.reduce((sum,item)=>sum+item.rating,0)/ratings.length:0,[ratings]);
-  const fill=average<=0?0:Math.min(100,(average/5)*100);
+  const fill=Math.max(0,Math.min(100,(average+5)*10));
   const hourKey=new Date();hourKey.setMinutes(0,0,0);
   const alreadyRated=ratings.some(item=>item.user_id===profile?.id&&new Date(item.hour_bucket).getTime()===hourKey.getTime());
 
