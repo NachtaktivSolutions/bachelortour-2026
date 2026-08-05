@@ -1,0 +1,124 @@
+/* Einheitlicher Modal-Standard für Admin- und Teilnehmer-Overlays */
+.cropper-backdrop{
+  position:fixed!important;
+  inset:0!important;
+  z-index:100000!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:max(18px,env(safe-area-inset-top)) 16px max(18px,env(safe-area-inset-bottom))!important;
+  overflow:hidden!important;
+  background:rgba(0,0,0,.82)!important;
+  backdrop-filter:blur(14px)!important;
+  -webkit-backdrop-filter:blur(14px)!important;
+}
+
+.cropper-modal{
+  position:relative!important;
+  width:min(100%,620px)!important;
+  max-width:620px!important;
+  max-height:calc(100dvh - max(36px,env(safe-area-inset-top)) - max(36px,env(safe-area-inset-bottom)))!important;
+  margin:0!important;
+  padding:24px!important;
+  overflow-y:auto!important;
+  overscroll-behavior:contain!important;
+  -webkit-overflow-scrolling:touch!important;
+  border:1px solid rgba(255,122,0,.34)!important;
+  border-radius:26px!important;
+  background:linear-gradient(155deg,#1b1b1b,#0d0d0d)!important;
+  box-shadow:0 28px 90px rgba(0,0,0,.75)!important;
+  color:#fff!important;
+}
+
+.cropper-modal .cropper-close{
+  position:sticky!important;
+  float:right!important;
+  top:0!important;
+  z-index:8!important;
+  display:grid!important;
+  place-items:center!important;
+  width:48px!important;
+  height:48px!important;
+  margin:-4px -4px 8px 12px!important;
+  border:1px solid rgba(255,255,255,.16)!important;
+  border-radius:50%!important;
+  background:#292929!important;
+  color:#fff!important;
+  box-shadow:0 8px 24px rgba(0,0,0,.35)!important;
+}
+
+.cropper-modal .cropper-close svg{width:25px;height:25px}
+.cropper-modal>.eyebrow{display:block;margin:2px 58px 8px 0;color:#ff7a00}
+.cropper-modal>h2{margin:0 58px 22px 0;font-size:clamp(1.65rem,6vw,2.25rem);line-height:1.08}
+
+.checkin-edit-modal{
+  display:block!important;
+  padding-bottom:0!important;
+}
+
+.checkin-edit-modal input:not([type=checkbox]),
+.checkin-edit-modal textarea{
+  width:100%!important;
+  box-sizing:border-box!important;
+  margin:0 0 14px!important;
+  border:1px solid #3a3a3a!important;
+  border-radius:16px!important;
+  background:#181818!important;
+  color:#fff!important;
+  font-size:16px!important;
+  padding:15px 16px!important;
+}
+
+.checkin-edit-modal textarea{min-height:110px!important;resize:vertical!important}
+.checkin-edit-modal>label:not(.check-row){display:grid!important;gap:8px!important;margin:4px 0 14px!important;color:#d8d8d8!important;font-weight:700!important}
+.checkin-edit-modal input[type=datetime-local]{min-height:56px!important;color-scheme:dark!important}
+.checkin-edit-modal .check-row{
+  display:flex!important;
+  align-items:center!important;
+  gap:12px!important;
+  min-height:54px!important;
+  margin:10px 0!important;
+  padding:12px 14px!important;
+  border:1px solid rgba(255,255,255,.09)!important;
+  border-radius:15px!important;
+  background:#151515!important;
+  color:#eee!important;
+}
+.checkin-edit-modal .check-row input{width:25px!important;height:25px!important;flex:none!important}
+
+.checkin-edit-modal .edit-modal-actions{
+  position:sticky!important;
+  bottom:0!important;
+  z-index:7!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,.8fr) minmax(0,1.35fr)!important;
+  gap:10px!important;
+  margin:22px -24px 0!important;
+  padding:14px 24px max(16px,env(safe-area-inset-bottom))!important;
+  border-top:1px solid rgba(255,255,255,.1)!important;
+  background:linear-gradient(180deg,rgba(13,13,13,.82),#0d0d0d 26%)!important;
+  backdrop-filter:blur(10px)!important;
+  -webkit-backdrop-filter:blur(10px)!important;
+}
+.checkin-edit-modal .edit-modal-actions button{min-width:0!important;min-height:54px!important;margin:0!important;padding:12px!important;justify-content:center!important;font-size:clamp(.9rem,3.8vw,1.05rem)!important}
+
+body:has(.cropper-backdrop){overflow:hidden!important;touch-action:none!important}
+.cropper-modal{touch-action:pan-y!important}
+
+@media(max-width:600px){
+  .cropper-backdrop{align-items:flex-end!important;padding:max(10px,env(safe-area-inset-top)) 8px 0!important}
+  .cropper-modal{
+    width:100%!important;
+    max-width:none!important;
+    max-height:calc(100dvh - max(10px,env(safe-area-inset-top)))!important;
+    padding:20px 18px!important;
+    border-radius:24px 24px 0 0!important;
+    border-bottom:0!important;
+  }
+  .checkin-edit-modal .edit-modal-actions{margin:20px -18px 0!important;padding:12px 18px max(14px,env(safe-area-inset-bottom))!important}
+}
+
+@media(max-width:390px){
+  .checkin-edit-modal .edit-modal-actions{grid-template-columns:1fr!important}
+  .cropper-modal>h2{font-size:1.55rem!important}
+}
