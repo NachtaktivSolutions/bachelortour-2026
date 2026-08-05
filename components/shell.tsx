@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Home, Map, MessageCircle, Images, Users, Shield, LogOut, CalendarCog, MapPinned, Luggage, ListChecks, LayoutDashboard, ChevronDown, LifeBuoy, BellRing, Volume2, Eye, EyeOff } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Home, Map, MessageCircle, Images, Users, Shield, LogOut, CalendarCog, MapPinned, Luggage, ListChecks, LayoutDashboard, ChevronDown, LifeBuoy, BellRing, Volume2, Eye, EyeOff, Smartphone } from "lucide-react";
 import { useApp } from "./app-provider";
 import { createClient } from "@/lib/supabase/client";
 import { PwaInstallPrompt } from "./pwa-install-prompt";
@@ -19,6 +19,7 @@ const nav = [
 
 const adminLinks = [
   { href: "/admin", label: "Admin-Zentrale", description: "Neuigkeiten, Push, Tour und Mitglieder", icon: LayoutDashboard },
+  { href: "/admin/devices", label: "Geräteübersicht", description: "Installation, Push, Standort und Online-Status", icon: Smartphone },
   { href: "/admin/reminders", label: "Erinnerungen", description: "Automatische Pushs planen und verwalten", icon: BellRing },
   { href: "/admin/events", label: "Programm verwalten", description: "Programmpunkte anlegen und bearbeiten", icon: CalendarCog },
   { href: "/admin/places", label: "Hotels & Wissenswertes", description: "Geheime Orte und Unterkunft steuern", icon: MapPinned },
@@ -37,22 +38,21 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [easterOpen,setEasterOpen]=useState(false);
   const easterTaps=useRef<number[]>([]);
   const adminMenuRef=useRef<HTMLDivElement>(null);
-  const supabase = createClient();
+  const supabase = useMemo(()=>createClient(),[]);
 
   const loadUnread = useCallback(async () => {
     if (!profile) return;
     if (pathname.startsWith("/chat")) { setUnreadChat(0); return; }
-    const { data: freshProfile } = await supabase.from("profiles").select("chat_last_read_at").eq("id", profile.id).maybeSingle();
-    const since = freshProfile?.chat_last_read_at || profile.chat_last_read_at || "1970-01-01T00:00:00.000Z";
+    const since = profile.chat_last_read_at || "1970-01-01T00:00:00.000Z";
     const { count } = await supabase.from("chat_messages").select("id", { count: "exact", head: true }).neq("sender_id", profile.id).gt("created_at", since);
     setUnreadChat(count || 0);
-  }, [pathname, profile, supabase]);
+  }, [pathname, profile?.id, profile?.chat_last_read_at, supabase]);
 
   const loadPacking=useCallback(async()=>{const {data}=await supabase.from("packing_settings").select("is_visible").eq("id",1).maybeSingle();setPackingVisible(Boolean(data?.is_visible))},[supabase]);
 
   useEffect(() => {
     loadUnread();loadPacking();
-    const channel = supabase.channel("shell-live")
+    const channel = supabase.channel(`shell-live-${profile?.id||"guest"}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, loadUnread)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${profile?.id}` }, loadUnread)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "packing_settings", filter:"id=eq.1" }, loadPacking)
