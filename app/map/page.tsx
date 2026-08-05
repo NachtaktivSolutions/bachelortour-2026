@@ -29,9 +29,9 @@ export default function MapPage() {
     try{
       const now=new Date().toISOString();
       const [pinResult, programResult, memberResult] = await Promise.all([
-        supabase.from("map_pins").select("id,title,description,address,latitude,longitude,starts_at,ends_at,pin_type,created_at").or("ends_at.is.null,ends_at.gte."+now).order("starts_at"),
-        supabase.from("program_items").select("id,title,description,address,starts_at,ends_at,latitude,longitude,is_visible").eq("is_visible",true).or("ends_at.is.null,ends_at.gte."+now).order("starts_at"),
-        supabase.from("profiles").select("id,name,avatar_url,latitude,longitude,location_updated_at,participant_status,status_updated_at,share_location").eq("share_location", true)
+        supabase.from("map_pins").select("id,title,description,address,latitude,longitude,starts_at,ends_at,created_at").or("ends_at.is.null,ends_at.gte."+now).order("starts_at"),
+        supabase.from("program_items").select("id,title,description,address,starts_at,ends_at,latitude,longitude,marker_type,is_visible,created_at").eq("is_visible",true).or("ends_at.is.null,ends_at.gte."+now).order("starts_at"),
+        supabase.from("profiles").select("id,name,phone,avatar_url,latitude,longitude,location_updated_at,participant_status,status_updated_at,share_location").eq("share_location", true)
       ]);
       const firstError = pinResult.error || programResult.error || memberResult.error;
       setError(firstError?.message ?? "");
@@ -45,7 +45,7 @@ export default function MapPage() {
 
   useEffect(() => {
     load(true);
-    const channel=supabase.channel("live-map-v43")
+    const channel=supabase.channel("live-map-v44")
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"profiles"},()=>load(true))
       .on("postgres_changes",{event:"*",schema:"public",table:"map_pins"},()=>load(true))
       .on("postgres_changes",{event:"*",schema:"public",table:"program_items"},()=>load(true)).subscribe();
