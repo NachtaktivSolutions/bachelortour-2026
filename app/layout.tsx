@@ -31,6 +31,7 @@ import "./v37-tour-rating.css";
 import "./v38-joint-invaders.css";
 import "./v39-admin-preview.css";
 import "./v40-packing-sort.css";
+import "./v40-home-checkin.css";
 import "leaflet/dist/leaflet.css";
 import { AppProvider } from "@/components/app-provider";
 
