@@ -70,7 +70,12 @@ export function PushBootstrap(){
     finally{setBusy(false)}
   }
 
-  function finishSetup(){if(setupKey)localStorage.setItem(setupKey,"done");setStep("done");setVisible(false)}
+  function finishSetup(){
+    if(setupKey)localStorage.setItem(setupKey,"done");
+    setStep("done");
+    setVisible(false);
+    window.dispatchEvent(new Event("firestarter-device-setup-complete"));
+  }
   if(!visible||!session||!profile)return null;
   const number=step==="location"?"1 von 2":"2 von 2";
 
