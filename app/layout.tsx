@@ -35,8 +35,10 @@ import "./v40-home-checkin.css";
 import "./v41-unified-modals.css";
 import "./v42-status-colors.css";
 import "./v42-device-health.css";
+import "./v43-onboarding.css";
 import "leaflet/dist/leaflet.css";
 import { AppProvider } from "@/components/app-provider";
-export const metadata:Metadata={title:"Firestarter 2026",applicationName:"Firestarter 2026",description:"News, Chat, Fotos, Karte und Live-Standorte für die Bachelortour 2026",manifest:"/manifest.webmanifest?v=42",appleWebApp:{capable:true,statusBarStyle:"black",title:"Firestarter 2026"},icons:{icon:"/api/branding/icon?v=42",apple:"/api/branding/icon?v=42"}};
+import { OnboardingExperience } from "@/components/onboarding-experience";
+export const metadata:Metadata={title:"Firestarter 2026",applicationName:"Firestarter 2026",description:"News, Chat, Fotos, Karte und Live-Standorte für die Bachelortour 2026",manifest:"/manifest.webmanifest?v=43",appleWebApp:{capable:true,statusBarStyle:"black",title:"Firestarter 2026"},icons:{icon:"/api/branding/icon?v=43",apple:"/api/branding/icon?v=43"}};
 export const viewport:Viewport={themeColor:"#090909",width:"device-width",initialScale:1,maximumScale:1,viewportFit:"cover"};
-export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="de"><body><AppProvider>{children}</AppProvider></body></html>}
+export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="de"><body><AppProvider>{children}<OnboardingExperience/></AppProvider></body></html>}
