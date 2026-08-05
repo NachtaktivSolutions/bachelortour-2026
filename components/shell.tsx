@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Home, Map, MessageCircle, Images, Users, Shield, LogOut, CalendarCog, MapPinned, Luggage, ListChecks, LayoutDashboard, ChevronDown, LifeBuoy, BellRing, Volume2 } from "lucide-react";
+import { Home, Map, MessageCircle, Images, Users, Shield, LogOut, CalendarCog, MapPinned, Luggage, ListChecks, LayoutDashboard, ChevronDown, LifeBuoy, BellRing, Volume2, Eye, EyeOff } from "lucide-react";
 import { useApp } from "./app-provider";
 import { createClient } from "@/lib/supabase/client";
 import { PwaInstallPrompt } from "./pwa-install-prompt";
@@ -30,7 +30,7 @@ const adminLinks = [
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { profile } = useApp();
+  const { profile,actualIsAdmin,adminPreview,setAdminPreview } = useApp();
   const [unreadChat, setUnreadChat] = useState(0);
   const [packingVisible,setPackingVisible]=useState(false);
   const [adminMenuOpen,setAdminMenuOpen]=useState(false);
@@ -71,27 +71,31 @@ export function Shell({ children }: { children: React.ReactNode }) {
     return()=>{document.removeEventListener("mousedown",close);document.removeEventListener("keydown",escape)};
   },[adminMenuOpen]);
 
-  const logout = async () => { await supabase.auth.signOut(); router.replace("/login"); };
+  const logout = async () => { setAdminPreview(false);await supabase.auth.signOut(); router.replace("/login"); };
   const triggerEaster=(event:React.MouseEvent<HTMLAnchorElement>)=>{
     const now=Date.now();
     easterTaps.current=[...easterTaps.current.filter(time=>now-time<1900),now];
     if(easterTaps.current.length>=5){event.preventDefault();easterTaps.current=[];setEasterOpen(true)}
   };
+  const enterParticipantView=()=>{setAdminMenuOpen(false);setAdminPreview(true);if(pathname.startsWith("/admin"))router.push("/")};
+  const leaveParticipantView=()=>setAdminPreview(false);
 
-  return <div className="app-shell">
+  return <div className={`app-shell${adminPreview?" participant-preview-active":""}`}>
     <header className="topbar">
       <Link href="/" className="brand-lockup" onClick={triggerEaster}><img className="brand-tour-icon" src="/api/branding/icon" alt="Firestarter"/><div><span className="eyebrow">FIRESTARTER 26</span><strong>Bachelortour 2026</strong></div></Link>
       <div className="top-actions">
         <Link className="icon-button" href="/tour-tools" aria-label="Hilfe und Check-in" title="Hilfe, Check-in und Status"><LifeBuoy size={20}/></Link>
         {(packingVisible||profile?.is_admin)&&<Link className="icon-button" href="/packing-list" aria-label="Packliste" title="Packliste"><Luggage size={20}/></Link>}
-        {profile?.is_admin&&<div className="admin-menu-wrap" ref={adminMenuRef}>
+        {actualIsAdmin&&adminPreview&&<button type="button" className="icon-button participant-preview-exit-icon" onClick={leaveParticipantView} aria-label="Teilnehmeransicht verlassen" title="Adminansicht wiederherstellen"><EyeOff size={20}/></button>}
+        {actualIsAdmin&&!adminPreview&&<div className="admin-menu-wrap" ref={adminMenuRef}>
           <button type="button" className={`icon-button admin-button admin-menu-trigger ${adminMenuOpen?"active":""}`} onClick={()=>setAdminMenuOpen(value=>!value)} aria-label="Admin-Menü" aria-expanded={adminMenuOpen} title="Admin-Menü"><Shield size={20}/><ChevronDown className="admin-menu-chevron" size={12}/></button>
-          {adminMenuOpen&&<div className="admin-dropdown" role="menu"><div className="admin-dropdown-head"><span className="eyebrow">KOMMANDOZENTRALE</span><strong>Admin-Menü</strong></div>{adminLinks.map(({href,label,description,icon:Icon})=><Link key={href} href={href} className={pathname===href?"active":""} role="menuitem"><span className="admin-dropdown-icon"><Icon size={20}/></span><span><strong>{label}</strong><small>{description}</small></span></Link>)}</div>}
+          {adminMenuOpen&&<div className="admin-dropdown" role="menu"><div className="admin-dropdown-head"><span className="eyebrow">KOMMANDOZENTRALE</span><strong>Admin-Menü</strong></div><button type="button" className="admin-preview-menu-item" onClick={enterParticipantView} role="menuitem"><span className="admin-dropdown-icon"><Eye size={20}/></span><span><strong>Als Teilnehmer ansehen</strong><small>Die gesamte App ohne Adminfunktionen prüfen</small></span></button>{adminLinks.map(({href,label,description,icon:Icon})=><Link key={href} href={href} className={pathname===href?"active":""} role="menuitem"><span className="admin-dropdown-icon"><Icon size={20}/></span><span><strong>{label}</strong><small>{description}</small></span></Link>)}</div>}
         </div>}
         <button className="icon-button logout-button" onClick={logout} aria-label="Abmelden"><LogOut size={19}/></button>
         <Link href="/profile" className="avatar" aria-label="Mein Profil" title="Mein Profil">{profile?.avatar_url?<img src={profile.avatar_url} alt=""/>:<span>{profile?.name?.slice(0,1)??"?"}</span>}</Link>
       </div>
     </header>
+    {adminPreview&&<div className="participant-preview-banner" role="status"><span><Eye size={17}/><strong>Teilnehmeransicht aktiv</strong><small>Du siehst die App jetzt wie ein normales Mitglied.</small></span><button type="button" onClick={leaveParticipantView}>Adminmodus</button></div>}
     <main className="page-content">{children}</main>
     <nav className="bottom-nav">{nav.map(({href,label,icon:Icon})=>{const active=href==="/"?pathname==="/":pathname.startsWith(href);const isChat=href==="/chat";return <Link key={href} href={href} className={active?"active":""}><span className="nav-icon-wrap"><Icon size={22}/>{isChat&&unreadChat>0&&<span className="chat-unread-badge">{unreadChat>99?"99+":unreadChat}</span>}</span><span>{label}</span></Link>})}</nav>
     <PwaInstallPrompt/>
