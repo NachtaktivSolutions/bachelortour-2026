@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Camera, Heart, Download, X, MessageCircle, RefreshCw, Trash2 } from "lucide-react";
 import { AuthGate } from "@/components/auth-gate";
 import { Shell } from "@/components/shell";
@@ -31,11 +32,35 @@ export default function GalleryPage() {
     if (firstError) { setError(firstError.message); setLoading(false); return; }
     const likes = likeResult.data ?? [];
     const comments = (commentResult.data ?? []) as unknown as PhotoComment[];
-    setPhotos(((photoResult.data ?? []) as unknown as Photo[]).map(photo => ({ ...photo, photo_likes: likes.filter(like => like.photo_id === photo.id).map(like => ({ user_id: like.user_id })), photo_comments: comments.filter(comment => comment.photo_id === photo.id) })));
+    setPhotos(((photoResult.data ?? []) as unknown as Photo[]).map(photo => ({
+      ...photo,
+      photo_likes: likes.filter(like => like.photo_id === photo.id).map(like => ({ user_id: like.user_id })),
+      photo_comments: comments.filter(comment => comment.photo_id === photo.id)
+    })));
     setLoading(false);
   }, [supabase]);
 
-  useEffect(() => { load(); const channel = supabase.channel("gallery-v20").on("postgres_changes", { event: "*", schema: "public", table: "photos" }, load).on("postgres_changes", { event: "*", schema: "public", table: "photo_likes" }, load).on("postgres_changes", { event: "*", schema: "public", table: "photo_comments" }, load).subscribe(); return () => { supabase.removeChannel(channel); }; }, [load, supabase]);
+  useEffect(() => {
+    load();
+    const channel = supabase.channel("gallery-v20")
+      .on("postgres_changes", { event: "*", schema: "public", table: "photos" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "photo_likes" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "photo_comments" }, load)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [load, supabase]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") setSelectedId(null); };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [selectedId]);
 
   async function upload(e: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []); if (!files.length || !profile) return;
@@ -65,15 +90,53 @@ export default function GalleryPage() {
     }
   }
 
-  async function removePhoto(photo: Photo) { if (!profile?.is_admin || !confirm("Foto wirklich löschen?")) return; const { error } = await supabase.from("photos").delete().eq("id", photo.id); if (error) setError(error.message); else { setSelectedId(null); await load(); } }
-  async function toggleLike(photo: Photo) { if (!profile) return; const liked = photo.photo_likes?.some(like => like.user_id === profile.id); const result = liked ? await supabase.from("photo_likes").delete().eq("photo_id", photo.id).eq("user_id", profile.id) : await supabase.from("photo_likes").insert({ photo_id: photo.id, user_id: profile.id }); if (result.error) setError(result.error.message); else await load(); }
-  async function comment(e: FormEvent<HTMLFormElement>) { e.preventDefault(); if (!profile || !selected) return; const form = new FormData(e.currentTarget); const body = String(form.get("body")).trim(); if (!body) return; const { error: commentError } = await supabase.from("photo_comments").insert({ photo_id: selected.id, user_id: profile.id, body }); if (commentError) setError(commentError.message); else { e.currentTarget.reset(); await load(); } }
+  async function removePhoto(photo: Photo) {
+    if (!profile?.is_admin || !confirm("Foto wirklich löschen?")) return;
+    const { error: removeError } = await supabase.from("photos").delete().eq("id", photo.id);
+    if (removeError) setError(removeError.message); else { setSelectedId(null); await load(); }
+  }
+
+  async function toggleLike(photo: Photo) {
+    if (!profile) return;
+    const liked = photo.photo_likes?.some(like => like.user_id === profile.id);
+    const result = liked
+      ? await supabase.from("photo_likes").delete().eq("photo_id", photo.id).eq("user_id", profile.id)
+      : await supabase.from("photo_likes").insert({ photo_id: photo.id, user_id: profile.id });
+    if (result.error) setError(result.error.message); else await load();
+  }
+
+  async function comment(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault(); if (!profile || !selected) return;
+    const body = String(new FormData(e.currentTarget).get("body")).trim(); if (!body) return;
+    const { error: commentError } = await supabase.from("photo_comments").insert({ photo_id: selected.id, user_id: profile.id, body });
+    if (commentError) setError(commentError.message); else { e.currentTarget.reset(); await load(); }
+  }
+
+  const overlay = selected && typeof document !== "undefined" ? createPortal(
+    <div className="photo-modal" role="dialog" aria-modal="true" aria-label="Foto ansehen" onClick={() => setSelectedId(null)}>
+      <div className="photo-modal-card" onClick={event => event.stopPropagation()}>
+        <button className="modal-close" onClick={() => setSelectedId(null)} aria-label="Foto schließen"><X /></button>
+        <img src={selected.image_url} alt="Tourfoto" />
+        <div className="modal-actions">
+          <button onClick={() => toggleLike(selected)}><Heart />Gefällt {selected.photo_likes?.length || 0}</button>
+          <a href={selected.image_url} target="_blank" rel="noreferrer"><Download />Öffnen / Download</a>
+          {profile?.is_admin && <button className="danger-button" onClick={() => removePhoto(selected)}><Trash2 />Foto löschen</button>}
+        </div>
+        <div className="comments">{selected.photo_comments?.map(commentItem => <div key={commentItem.id}><strong>{commentItem.profiles?.name || "Mitglied"}</strong><p>{commentItem.body}</p></div>)}</div>
+        <form onSubmit={comment}><input name="body" placeholder="Kommentar schreiben …" /><button className="primary-button">Senden</button></form>
+      </div>
+    </div>,
+    document.body
+  ) : null;
 
   return <AuthGate><Shell>
     <div className="page-heading"><span className="eyebrow">KEINE BEWEISE, KEIN VERBRECHEN</span><h1>Galerie</h1><p>Mehrere Fotos auswählen, liken, kommentieren und im Vollbild ansehen.</p></div>
     <div className="gallery-toolbar"><label className="upload-fab"><Camera />{busy ? uploadProgress || "Foto wird vorbereitet …" : "Fotos hochladen"}<input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif" multiple onChange={upload} disabled={busy} /></label><button className="secondary-button" onClick={load} disabled={busy}><RefreshCw />Aktualisieren</button></div>
     {error && <div className="error">{error}</div>}
-    {loading ? <div className="empty-card">Galerie wird geladen …</div> : !photos.length ? <div className="empty-card">Noch keine Fotos – lade das erste hoch.</div> : <div className="photo-grid">{photos.map(photo => { const liked = photo.photo_likes?.some(like => like.user_id === profile?.id); return <figure key={photo.id}><button className="photo-open" onClick={() => setSelectedId(photo.id)}><img src={photo.image_url} alt="Tourfoto" loading="lazy" decoding="async" /></button>{profile?.is_admin&&<button className="admin-overlay-delete" onClick={()=>removePhoto(photo)} title="Foto löschen"><Trash2/></button>}<figcaption><span>{photo.profiles?.name || "Mitglied"}<small>{new Date(photo.created_at).toLocaleString("de-DE")}</small></span><div><button className={liked ? "liked" : ""} onClick={() => toggleLike(photo)}><Heart fill={liked ? "currentColor" : "none"} />{photo.photo_likes?.length || 0}</button><button onClick={() => setSelectedId(photo.id)}><MessageCircle />{photo.photo_comments?.length || 0}</button></div></figcaption></figure>; })}</div>}
-    {selected && <div className="photo-modal" onClick={() => setSelectedId(null)}><div className="photo-modal-card" onClick={event => event.stopPropagation()}><button className="modal-close" onClick={() => setSelectedId(null)}><X /></button><img src={selected.image_url} alt="Tourfoto" /><div className="modal-actions"><button onClick={() => toggleLike(selected)}><Heart />Gefällt {selected.photo_likes?.length || 0}</button><a href={selected.image_url} target="_blank" rel="noreferrer"><Download />Öffnen / Download</a>{profile?.is_admin&&<button className="danger-button" onClick={()=>removePhoto(selected)}><Trash2/>Foto löschen</button>}</div><div className="comments">{selected.photo_comments?.map(commentItem => <div key={commentItem.id}><strong>{commentItem.profiles?.name || "Mitglied"}</strong><p>{commentItem.body}</p></div>)}</div><form onSubmit={comment}><input name="body" placeholder="Kommentar schreiben …" /><button className="primary-button">Senden</button></form></div></div>}
+    {loading ? <div className="empty-card">Galerie wird geladen …</div> : !photos.length ? <div className="empty-card">Noch keine Fotos – lade das erste hoch.</div> : <div className="photo-grid">{photos.map(photo => {
+      const liked = photo.photo_likes?.some(like => like.user_id === profile?.id);
+      return <figure key={photo.id}><button className="photo-open" onClick={() => setSelectedId(photo.id)}><img src={photo.image_url} alt="Tourfoto" loading="lazy" decoding="async" /></button>{profile?.is_admin && <button className="admin-overlay-delete" onClick={() => removePhoto(photo)} title="Foto löschen"><Trash2 /></button>}<figcaption><span>{photo.profiles?.name || "Mitglied"}<small>{new Date(photo.created_at).toLocaleString("de-DE")}</small></span><div><button className={liked ? "liked" : ""} onClick={() => toggleLike(photo)}><Heart fill={liked ? "currentColor" : "none"} />{photo.photo_likes?.length || 0}</button><button onClick={() => setSelectedId(photo.id)}><MessageCircle />{photo.photo_comments?.length || 0}</button></div></figcaption></figure>;
+    })}</div>}
+    {overlay}
   </Shell></AuthGate>;
 }
