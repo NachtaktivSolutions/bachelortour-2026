@@ -33,6 +33,7 @@ import "./v39-admin-preview.css";
 import "./v40-packing-sort.css";
 import "./v40-home-checkin.css";
 import "./v41-unified-modals.css";
+import "./v42-status-colors.css";
 import "leaflet/dist/leaflet.css";
 import { AppProvider } from "@/components/app-provider";
 
@@ -40,9 +41,9 @@ export const metadata: Metadata = {
   title: "Firestarter 2026",
   applicationName: "Firestarter 2026",
   description: "News, Chat, Fotos, Karte und Live-Standorte für die Bachelortour 2026",
-  manifest: "/manifest.webmanifest?v=41",
+  manifest: "/manifest.webmanifest?v=42",
   appleWebApp: { capable: true, statusBarStyle: "black", title: "Firestarter 2026" },
-  icons: { icon: "/api/branding/icon?v=41", apple: "/api/branding/icon?v=41" }
+  icons: { icon: "/api/branding/icon?v=42", apple: "/api/branding/icon?v=42" }
 };
 
 export const viewport: Viewport = { themeColor: "#090909", width: "device-width", initialScale: 1, maximumScale: 1, viewportFit: "cover" };
