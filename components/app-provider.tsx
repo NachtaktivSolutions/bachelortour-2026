@@ -6,11 +6,16 @@ import { createClient } from "@/lib/supabase/client";
 import type { Profile } from "@/lib/types";
 import { PushBootstrap } from "./push-settings";
 
+const ADMIN_PREVIEW_KEY="firestarter-admin-participant-preview";
+
 type AppContextValue = {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
   refreshProfile: () => Promise<void>;
+  actualIsAdmin: boolean;
+  adminPreview: boolean;
+  setAdminPreview: (enabled:boolean) => void;
 };
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -18,19 +23,25 @@ const AppContext = createContext<AppContextValue | undefined>(undefined);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const supabase = useMemo(() => createClient(), []);
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [actualProfile, setActualProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [adminPreview,setAdminPreviewState]=useState(false);
 
   const refreshProfile = async () => {
     const { data: { session: currentSession } } = await supabase.auth.getSession();
     setSession(currentSession);
     if (!currentSession) {
-      setProfile(null);
+      setActualProfile(null);
+      setAdminPreviewState(false);
       return;
     }
     const { data } = await supabase.from("profiles").select("*").eq("id", currentSession.user.id).single();
-    setProfile(data ?? null);
+    setActualProfile(data ?? null);
   };
+
+  useEffect(()=>{
+    try{setAdminPreviewState(localStorage.getItem(ADMIN_PREVIEW_KEY)==="1")}catch{}
+  },[]);
 
   useEffect(() => {
     refreshProfile().finally(() => setLoading(false));
@@ -41,8 +52,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, [supabase]);
 
+  const actualIsAdmin=Boolean(actualProfile?.is_admin);
+  useEffect(()=>{if(actualProfile&&!actualIsAdmin)setAdminPreviewState(false)},[actualProfile,actualIsAdmin]);
+
+  const setAdminPreview=(enabled:boolean)=>{
+    if(enabled&&!actualIsAdmin)return;
+    setAdminPreviewState(enabled);
+    try{if(enabled)localStorage.setItem(ADMIN_PREVIEW_KEY,"1");else localStorage.removeItem(ADMIN_PREVIEW_KEY)}catch{}
+  };
+
+  const profile=useMemo(()=>{
+    if(!actualProfile)return null;
+    if(!adminPreview||!actualIsAdmin)return actualProfile;
+    return {...actualProfile,is_admin:false} as Profile;
+  },[actualProfile,adminPreview,actualIsAdmin]);
+
   return (
-    <AppContext.Provider value={{ session, profile, loading, refreshProfile }}>
+    <AppContext.Provider value={{ session, profile, loading, refreshProfile, actualIsAdmin, adminPreview:adminPreview&&actualIsAdmin, setAdminPreview }}>
       {children}
       <PushBootstrap />
     </AppContext.Provider>
