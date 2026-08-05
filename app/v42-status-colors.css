@@ -1,0 +1,15 @@
+/* V42: neue Tourstatus mit eindeutigen Farben */
+.member-pin-v28 .v28-pin-badge{max-width:124px!important;min-width:78px!important;padding:0 9px!important;font-size:9px!important}
+.member-pin-v28.status-happy .v28-pin-avatar{border-color:#28d17c!important;box-shadow:0 0 0 3px #28d17c30,0 7px 18px #0009!important}
+.member-pin-v28.status-happy .v28-pin-badge,.map-status-badge.status-happy{background:#147747!important;border-color:#69f2a9!important;color:#effff6!important}
+.member-pin-v28.status-drinking .v28-pin-avatar{border-color:#ffb11b!important;box-shadow:0 0 0 3px #ffb11b30,0 7px 18px #0009!important}
+.member-pin-v28.status-drinking .v28-pin-badge,.map-status-badge.status-drinking{background:#9a5900!important;border-color:#ffc75f!important;color:#fff8df!important}
+.member-pin-v28.status-wasted .v28-pin-avatar{border-color:#ff3d7f!important;box-shadow:0 0 0 3px #ff3d7f35,0 7px 18px #0009!important}
+.member-pin-v28.status-wasted .v28-pin-badge,.map-status-badge.status-wasted{background:#8f1745!important;border-color:#ff75a5!important;color:#fff0f6!important}
+.member-pin-v28.status-dancing .v28-pin-avatar{border-color:#c45cff!important;box-shadow:0 0 0 3px #c45cff35,0 7px 18px #0009!important}
+.member-pin-v28.status-dancing .v28-pin-badge,.map-status-badge.status-dancing{background:#6e258f!important;border-color:#df9cff!important;color:#fff2ff!important}
+.member-pin-v28.status-sleeping .v28-pin-avatar{border-color:#5ca8ff!important;box-shadow:0 0 0 3px #5ca8ff30,0 7px 18px #0009!important}
+.member-pin-v28.status-sleeping .v28-pin-badge,.map-status-badge.status-sleeping{background:#245689!important;border-color:#8bc5ff!important;color:#eef7ff!important}
+.member-pin-v28.status-help .v28-pin-badge,.map-status-badge.status-help{background:#c81725!important;border-color:#ff6974!important;color:#fff!important;box-shadow:0 0 16px #ff263370!important}
+.map-status-badge{display:inline-flex!important;align-items:center!important;gap:4px!important;padding:5px 9px!important;border:1px solid rgba(255,255,255,.25)!important;border-radius:999px!important;font-weight:800!important;font-size:12px!important;line-height:1!important}
+@media(max-width:640px){.member-pin-v28 .v28-pin-badge{max-width:116px!important;font-size:8.5px!important;padding:0 7px!important}}
