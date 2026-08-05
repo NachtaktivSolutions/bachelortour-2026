@@ -1,0 +1,68 @@
+/* V36: dauerhaft sichtbarer, geräteübergreifend sicherer App-Header */
+:root{
+  --app-header-height:72px;
+  --app-header-safe-height:calc(var(--app-header-height) + env(safe-area-inset-top));
+}
+
+html{
+  scroll-padding-top:calc(var(--app-header-safe-height) + 12px);
+}
+
+.app-shell{
+  padding-top:var(--app-header-safe-height);
+}
+
+.topbar{
+  position:fixed!important;
+  top:0!important;
+  left:0!important;
+  right:0!important;
+  width:100%!important;
+  min-height:var(--app-header-safe-height)!important;
+  padding-top:calc(12px + env(safe-area-inset-top))!important;
+  padding-left:max(16px,env(safe-area-inset-left))!important;
+  padding-right:max(16px,env(safe-area-inset-right))!important;
+  z-index:10000!important;
+  isolation:isolate;
+  background:rgba(9,9,9,.94)!important;
+  -webkit-backdrop-filter:blur(20px) saturate(1.2);
+  backdrop-filter:blur(20px) saturate(1.2);
+  box-shadow:0 8px 24px rgba(0,0,0,.24);
+}
+
+/* Dropdown bleibt direkt unter dem festen Header und über dem Seiteninhalt. */
+.admin-dropdown{
+  z-index:10020!important;
+}
+
+/* Karten, Formulare und Sprungziele werden nicht unter dem Header versteckt. */
+.page-content > *,
+section[id],
+article[id],
+form[id]{
+  scroll-margin-top:calc(var(--app-header-safe-height) + 12px);
+}
+
+/* Vollbild-Overlays müssen weiterhin über Header und Navigation liegen. */
+.photo-modal,
+.cropper-backdrop,
+.member-detail-backdrop,
+.soundboard-backdrop,
+.easter-egg-overlay,
+.pwa-install-backdrop{
+  z-index:60000!important;
+}
+
+@media(max-width:500px){
+  :root{--app-header-height:68px}
+  .topbar{
+    padding-left:max(12px,env(safe-area-inset-left))!important;
+    padding-right:max(12px,env(safe-area-inset-right))!important;
+  }
+}
+
+@media(display-mode:standalone){
+  .topbar{
+    background:rgba(9,9,9,.97)!important;
+  }
+}
