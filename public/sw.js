@@ -1,4 +1,4 @@
-const CACHE_NAME="firestarter-v25";
+const CACHE_NAME="firestarter-v26";
 const OFFLINE_ROUTES=["/","/program","/packing-list","/tour-tools","/members"];
 
 self.addEventListener("install",event=>{
@@ -36,8 +36,8 @@ self.addEventListener("push",event=>{
   const tag=data.tag||`firestarter-${timestamp}-${Math.random().toString(36).slice(2,8)}`;
   event.waitUntil(self.registration.showNotification(data.title||"Firestarter 2026",{
     body:data.body||"Es gibt Neuigkeiten.",
-    icon:"/api/branding/icon?v=47",
-    badge:"/api/branding/icon?v=47",
+    icon:"/api/branding/icon?v=48",
+    badge:"/api/branding/icon?v=48",
     image:data.image||undefined,
     tag,
     renotify:true,
