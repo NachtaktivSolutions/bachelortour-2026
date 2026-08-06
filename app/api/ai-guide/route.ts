@@ -134,7 +134,9 @@ export async function POST(req: NextRequest) {
 PERSÖNLICHKEIT:
 - Sprich jeden Nutzer immer mit du an.
 - Antworte auf Deutsch, locker, direkt, hilfreich und eher kurz.
-- Sei humorvoll, leicht frech und passend zu einer chaotisch-liebevollen Bachelortour.
+- Sei deutlich witzig, frech und schlagfertig, besonders bei lockeren Fragen zum Programm, Hotel, Essen, Trinken und Nachtleben.
+- Liefere zuerst die hilfreiche Antwort und verpacke sie mit einem kurzen frechen Einstieg oder Abschluss.
+- Kling nicht wie ein sachlicher Kalender, eine Behörde oder ein Kundenservice-Bot.
 - Gelegentliche Emojis sind willkommen, aber mach keinen Kindergeburtstag daraus.
 - Harmlose Anspielungen darauf, dass die Truppe vielleicht betrunken, verkatert oder bekifft ist, sind erlaubt.
 - Verherrliche keinen riskanten Konsum und gib niemals gefährliche, medizinisch fragwürdige oder unzuverlässige Ratschläge.
@@ -146,6 +148,7 @@ WORTWAHL:
 
 FAKTENTREUE:
 - Erfinde, ergänze oder errate niemals Fakten, Namen, Uhrzeiten, Adressen, Programmpunkte, Hotels oder Ziele.
+- Humor darf nur die Verpackung verändern, niemals den Inhalt.
 - Sage offen und locker, wenn eine Information nicht in den freigegebenen Daten enthalten ist.
 - Nutze bei Tourfragen zuerst die gelieferten sichtbaren Daten.
 - Wenn ein sichtbares Hotel, ein Programmpunkt oder Wissenswertes vorhanden ist, nenne nur die tatsächlich gelieferten Angaben.
@@ -301,7 +304,7 @@ function answerFromVisibleTourData(
   ) {
     if (!context.hotels.length) {
       return {
-        answer: "Dazu ist noch kein Hotel freigeschaltet. Das Gremium hält den Schlafplatz offenbar noch unter Verschluss – ich kann technisch wirklich nicht drunterspicken. 😄",
+        answer: "Schlafen wird offenbar überbewertet: Noch ist kein Hotel freigeschaltet. Das Gremium hält den Schlafplatz unter Verschluss – und nein, ich kann auch mit einem digitalen Dietrich nicht nachsehen. 😄",
         actions: [],
         needsLocation: false,
       };
@@ -315,7 +318,7 @@ function answerFromVisibleTourData(
     });
 
     return {
-      answer: `Da pennen wir:\n\n${lines.join("\n\n")}\n\nSpeicher dir das besser – spätestens wenn die Orientierung leicht benebelt ist, wird Navigation zur Gruppenaufgabe. 😄`,
+      answer: `Hier wird später mehr oder weniger würdevoll genächtigt:\n\n${lines.join("\n\n")}\n\nSpeicher dir das lieber. Nachts ist „Ich weiß ungefähr, wo wir wohnen“ keine belastbare Navigationsstrategie. 😄`,
       actions: context.hotels.map((hotel) => actionFor("hotel", hotel)),
       needsLocation: false,
     };
@@ -323,8 +326,13 @@ function answerFromVisibleTourData(
 
   if (/(nächste|heute|morgen|programm|programmpunkt|was steht an)/.test(normalizedQuestion)) {
     if (!context.program_items.length) {
+      const emptyIntro = /morgen/.test(normalizedQuestion)
+        ? "Morgen? Laut freigegebenem Plan bisher gepflegtes Nichts."
+        : /heute/.test(normalizedQuestion)
+          ? "Heute steht offiziell noch nichts an. Außer vermutlich fragwürdigen Entscheidungen."
+          : "Der offizielle Plan ist aktuell so leer wie manche Erinnerung nach einer langen Nacht.";
       return {
-        answer: "Aktuell ist noch kein Programmpunkt freigeschaltet. Das Gremium spielt offenbar weiter Geheimdienst. 🕵️",
+        answer: `${emptyIntro} Das Gremium spielt offenbar weiter Geheimdienst. 🕵️`,
         actions: [],
         needsLocation: false,
       };
@@ -346,8 +354,21 @@ function answerFromVisibleTourData(
       return `${date ? `${date}: ` : ""}${norm(item.title)}${norm(item.address) ? ` – ${norm(item.address)}` : ""}`;
     });
 
+    const intro = /morgen/.test(normalizedQuestion)
+      ? "Morgen wird offenbar nicht ausgeschlafen – Überraschung. 😄"
+      : /heute/.test(normalizedQuestion)
+        ? "Heute heißt es wieder: Termine merken, bevor das Kurzzeitgedächtnis Feierabend macht. 🍻"
+        : /nächste/.test(normalizedQuestion)
+          ? "Der nächste offiziell freigegebene Schritt ins kontrollierte Chaos:"
+          : "Festhalten, der streng geheime Masterplan ist zumindest teilweise aus dem Sack:";
+    const outro = /morgen/.test(normalizedQuestion)
+      ? "Wecker stellen. Oder jemanden mit funktionierendem Verantwortungsgefühl neben dich legen. 😄"
+      : /heute/.test(normalizedQuestion)
+        ? "Pünktlich sein wäre stark. Wiedererkannt werden reicht zur Not aber auch. 😄"
+        : "Mehr ist nicht freigeschaltet – auch nicht gegen Bestechungsbier, Snacks oder sehr glasige Überzeugungsarbeit. 😄";
+
     return {
-      answer: `Das ist aktuell freigeschaltet:\n\n${lines.join("\n")}\n\nMehr liegt mir nicht vor – auch nicht nach Bestechungsbier oder besonders überzeugendem Blick. 😄`,
+      answer: `${intro}\n\n${lines.join("\n")}\n\n${outro}`,
       actions: visibleItems.map((item) => actionFor("program", item)),
       needsLocation: false,
     };
@@ -356,7 +377,7 @@ function answerFromVisibleTourData(
   if (/(wissenswert|information|infos|freigeschaltet)/.test(normalizedQuestion)) {
     if (!context.knowledge.length) {
       return {
-        answer: "Dazu ist aktuell noch nichts Wissenswertes freigeschaltet. Das Gremium hält den Deckel offenbar noch drauf. 😄",
+        answer: "Offiziell wissenswert ist gerade noch nichts. Inoffiziell wahrscheinlich eine Menge – aber das Gremium hält den Deckel drauf. 😄",
         actions: [],
         needsLocation: false,
       };
@@ -364,9 +385,9 @@ function answerFromVisibleTourData(
 
     const visibleItems = context.knowledge.slice(0, 6);
     return {
-      answer: `Das ist offiziell freigegeben:\n\n${visibleItems
+      answer: `Hier kommt das kleine Überlebenshandbuch für Menschen mit nachlassender Aufmerksamkeit:\n\n${visibleItems
         .map((item) => `${norm(item.title)}${norm(item.description) ? `: ${norm(item.description)}` : ""}`)
-        .join("\n\n")}\n\nMehr erfinde ich dir nicht zusammen – auch wenn die Runde schon sehr überzeugend guckt. 😄`,
+        .join("\n\n")}\n\nMehr dichte ich nicht dazu. Dafür seid ihr auf der Tour vermutlich selbst zuständig. 😄`,
       actions: visibleItems.map((item) => actionFor("knowledge", item)),
       needsLocation: false,
     };
@@ -374,7 +395,7 @@ function answerFromVisibleTourData(
 
   if (/(geheim|ziel|wo geht|überraschung|versteckt|unveröffentlicht)/.test(normalizedQuestion)) {
     return {
-      answer: "Dazu ist noch nichts freigeschaltet. Das Gremium hält den Deckel offenbar noch drauf – und ich kann technisch wirklich nicht drunterspicken. Netter Versuch aber. 😄",
+      answer: "Netter Versuch, Sherlock. Dazu ist noch nichts freigeschaltet. Das Gremium hält den Deckel drauf – und ich kann technisch wirklich nicht drunterspicken. 😄",
       actions: [],
       needsLocation: false,
     };
