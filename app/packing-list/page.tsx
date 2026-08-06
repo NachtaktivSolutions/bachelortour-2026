@@ -1,56 +1,128 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, Luggage, ShieldCheck } from "lucide-react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Check, GripVertical, Luggage, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { AuthGate } from "@/components/auth-gate";
 import { Shell } from "@/components/shell";
 import { useApp } from "@/components/app-provider";
 import { createClient } from "@/lib/supabase/client";
 
 type Settings={is_visible:boolean;title:string;intro:string|null};
-type Category={id:string;name:string;description:string|null;sort_order:number};
-type Item={id:string;category_id:string;title:string;description:string|null;is_required:boolean;sort_order:number};
+type AdminItem={id:string;title:string;description:string|null;sort_order:number};
+type PersonalItem={id:string;title:string;description:string|null;sort_order:number;checked:boolean};
 
 export default function PackingListPage(){
   const {profile}=useApp();
-  const supabase=createClient();
+  const supabase=useMemo(()=>createClient(),[]);
   const [settings,setSettings]=useState<Settings|null>(null);
-  const [categories,setCategories]=useState<Category[]>([]);
-  const [items,setItems]=useState<Item[]>([]);
+  const [adminItems,setAdminItems]=useState<AdminItem[]>([]);
+  const [personalItems,setPersonalItems]=useState<PersonalItem[]>([]);
   const [checked,setChecked]=useState<Set<string>>(new Set());
   const [loading,setLoading]=useState(true);
+  const [status,setStatus]=useState("");
+  const [dragging,setDragging]=useState<string|null>(null);
 
   const load=useCallback(async()=>{
     if(!profile)return;
-    const [s,c,i,ch]=await Promise.all([
+    const [s,i,ch,p]=await Promise.all([
       supabase.from("packing_settings").select("is_visible,title,intro").eq("id",1).maybeSingle(),
-      supabase.from("packing_categories").select("*").order("sort_order").order("created_at"),
-      supabase.from("packing_items").select("*").order("sort_order").order("created_at"),
-      supabase.from("packing_checks").select("item_id").eq("user_id",profile.id).eq("checked",true)
+      supabase.from("packing_items").select("id,title,description,sort_order").order("sort_order").order("created_at"),
+      supabase.from("packing_checks").select("item_id").eq("user_id",profile.id).eq("checked",true),
+      supabase.from("personal_packing_items").select("id,title,description,sort_order,checked").eq("user_id",profile.id).order("sort_order").order("created_at")
     ]);
-    setSettings(s.data);setCategories(c.data??[]);setItems(i.data??[]);setChecked(new Set((ch.data??[]).map(row=>row.item_id)));setLoading(false);
-  },[profile?.id,supabase]);
+    setSettings(s.data);
+    setAdminItems(i.data??[]);
+    setChecked(new Set((ch.data??[]).map(row=>row.item_id)));
+    setPersonalItems(p.data??[]);
+    setLoading(false);
+  },[profile,supabase]);
 
-  useEffect(()=>{load();const channel=supabase.channel("packing-live").on("postgres_changes",{event:"*",schema:"public",table:"packing_settings"},load).on("postgres_changes",{event:"*",schema:"public",table:"packing_categories"},load).on("postgres_changes",{event:"*",schema:"public",table:"packing_items"},load).subscribe();return()=>{supabase.removeChannel(channel)}},[load,supabase]);
+  useEffect(()=>{
+    load();
+    if(!profile)return;
+    const channel=supabase.channel(`packing-live-${profile.id}`)
+      .on("postgres_changes",{event:"*",schema:"public",table:"packing_settings"},load)
+      .on("postgres_changes",{event:"*",schema:"public",table:"packing_items"},load)
+      .on("postgres_changes",{event:"*",schema:"public",table:"personal_packing_items",filter:`user_id=eq.${profile.id}`},load)
+      .subscribe();
+    return()=>{supabase.removeChannel(channel)};
+  },[load,profile,supabase]);
 
-  async function toggle(itemId:string){
+  async function toggleAdmin(itemId:string){
     if(!profile)return;
     const active=checked.has(itemId);
     setChecked(current=>{const next=new Set(current);active?next.delete(itemId):next.add(itemId);return next});
-    if(active) await supabase.from("packing_checks").delete().eq("user_id",profile.id).eq("item_id",itemId);
-    else await supabase.from("packing_checks").upsert({user_id:profile.id,item_id:itemId,checked:true,checked_at:new Date().toISOString()});
+    const result=active
+      ?await supabase.from("packing_checks").delete().eq("user_id",profile.id).eq("item_id",itemId)
+      :await supabase.from("packing_checks").upsert({user_id:profile.id,item_id:itemId,checked:true,checked_at:new Date().toISOString()});
+    if(result.error){setStatus(result.error.message);await load()}
   }
 
-  const progress=items.length?Math.round(checked.size/items.length*100):0;
-  const grouped=useMemo(()=>categories.map(category=>({...category,items:items.filter(item=>item.category_id===category.id)})).filter(group=>group.items.length),[categories,items]);
+  async function togglePersonal(item:PersonalItem){
+    const next=!item.checked;
+    setPersonalItems(current=>current.map(entry=>entry.id===item.id?{...entry,checked:next}:entry));
+    const {error}=await supabase.from("personal_packing_items").update({checked:next}).eq("id",item.id);
+    if(error){setStatus(error.message);await load()}
+  }
+
+  async function addPersonal(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();
+    if(!profile)return;
+    const form=event.currentTarget;
+    const data=new FormData(form);
+    const title=String(data.get("title")||"").trim();
+    if(!title)return;
+    const nextOrder=personalItems.length?Math.max(...personalItems.map(item=>item.sort_order))+1:0;
+    const {error}=await supabase.from("personal_packing_items").insert({user_id:profile.id,title,description:String(data.get("description")||"").trim()||null,sort_order:nextOrder});
+    setStatus(error?error.message:"Eigener Gegenstand hinzugefügt.");
+    if(!error){form.reset();await load()}
+  }
+
+  async function removePersonal(id:string){
+    if(!confirm("Eigenen Gegenstand wirklich löschen?"))return;
+    const {error}=await supabase.from("personal_packing_items").delete().eq("id",id);
+    setStatus(error?error.message:"Eigener Gegenstand gelöscht.");
+    if(!error)setPersonalItems(current=>current.filter(item=>item.id!==id));
+  }
+
+  async function dropPersonal(targetId:string){
+    if(!dragging||dragging===targetId)return;
+    const from=personalItems.findIndex(item=>item.id===dragging);
+    const to=personalItems.findIndex(item=>item.id===targetId);
+    if(from<0||to<0)return;
+    const next=[...personalItems];
+    const [moved]=next.splice(from,1);
+    next.splice(to,0,moved);
+    const ordered=next.map((item,index)=>({...item,sort_order:index}));
+    setDragging(null);setPersonalItems(ordered);
+    const updates=await Promise.all(ordered.map(item=>supabase.from("personal_packing_items").update({sort_order:item.sort_order}).eq("id",item.id)));
+    const error=updates.find(result=>result.error)?.error;
+    if(error){setStatus(error.message);await load()}
+  }
+
+  const total=adminItems.length+personalItems.length;
+  const done=checked.size+personalItems.filter(item=>item.checked).length;
+  const progress=total?Math.round(done/total*100):0;
 
   return <AuthGate><Shell>
-    <div className="page-heading"><span className="eyebrow">NICHTS VERGESSEN</span><h1>{settings?.title||"Packliste"}</h1><p>{settings?.intro||"Hake ab, was schon im Gepäck ist."}</p></div>
+    <div className="page-heading"><span className="eyebrow">NICHTS VERGESSEN</span><h1>{settings?.title||"Packliste"}</h1><p>{settings?.intro||"Pflichtsachen abhaken und deine eigene Liste ergänzen."}</p></div>
+    {status&&<div className="status">{status}</div>}
     {loading?<div className="empty-card">Packliste wird geladen …</div>:!settings?.is_visible&&!profile?.is_admin?<div className="empty-card"><Luggage/>Die Packliste ist noch geheim. Du bekommst Bescheid, sobald sie freigeschaltet wird.</div>:<>
-      <section className="packing-progress"><div><strong>{checked.size} von {items.length}</strong><span>eingepackt</span></div><div className="packing-progress-track"><span style={{width:`${progress}%`}}/></div><b>{progress}%</b></section>
+      <section className="packing-progress"><div><strong>{done} von {total}</strong><span>eingepackt</span></div><div className="packing-progress-track"><span style={{width:`${progress}%`}}/></div><b>{progress}%</b></section>
       {profile?.is_admin&&!settings?.is_visible&&<div className="status"><ShieldCheck/>Admin-Vorschau: Für Teilnehmer ist diese Liste aktuell unsichtbar.</div>}
-      <div className="packing-groups">{grouped.map(group=><section className="packing-category" key={group.id}><header><div><h2>{group.name}</h2>{group.description&&<p>{group.description}</p>}</div><span>{group.items.filter(item=>checked.has(item.id)).length}/{group.items.length}</span></header><div>{group.items.map(item=>{const done=checked.has(item.id);return <button key={item.id} className={`packing-item ${done?"done":""}`} onClick={()=>toggle(item.id)}><span className="packing-check">{done&&<Check/>}</span><span><strong>{item.title}{item.is_required&&<em>Pflicht</em>}</strong>{item.description&&<small>{item.description}</small>}</span></button>})}</div></section>)}</div>
-      {!items.length&&<div className="empty-card">Noch keine Gegenstände eingetragen.</div>}
+
+      <section className="packing-simple-section">
+        <header className="packing-simple-heading"><div><span className="eyebrow">VOM ADMIN VORGEGEBEN</span><h2>Pflicht-Packliste</h2><p>Diese Gegenstände gelten für alle und können von Teilnehmern nicht gelöscht werden.</p></div><strong>{adminItems.filter(item=>checked.has(item.id)).length}/{adminItems.length}</strong></header>
+        <div className="packing-simple-list">{adminItems.map(item=>{const isDone=checked.has(item.id);return <button type="button" key={item.id} className={`packing-item ${isDone?"done":""}`} onClick={()=>toggleAdmin(item.id)}><span className="packing-check">{isDone&&<Check/>}</span><span><strong>{item.title}<em>Pflicht</em></strong>{item.description&&<small>{item.description}</small>}</span></button>})}</div>
+        {!adminItems.length&&<div className="empty-card">Der Admin hat noch keine Pflichtgegenstände eingetragen.</div>}
+      </section>
+
+      <section className="packing-simple-section personal-packing-section">
+        <header className="packing-simple-heading"><div><span className="eyebrow">NUR FÜR DICH</span><h2>Meine Ergänzungen</h2><p>Eigene Sachen hinzufügen, abhaken, sortieren und wieder löschen.</p></div><strong>{personalItems.filter(item=>item.checked).length}/{personalItems.length}</strong></header>
+        <form className="personal-packing-form" onSubmit={addPersonal}><input name="title" placeholder="Eigenen Gegenstand hinzufügen" required/><input name="description" placeholder="Hinweis (optional)"/><button className="primary-button"><Plus/>Hinzufügen</button></form>
+        <div className="personal-packing-list">{personalItems.map(item=><article key={item.id} draggable onDragStart={()=>setDragging(item.id)} onDragEnd={()=>setDragging(null)} onDragOver={event=>event.preventDefault()} onDrop={()=>dropPersonal(item.id)} className={`personal-packing-item ${item.checked?"done":""} ${dragging===item.id?"dragging":""}`}><button type="button" className="packing-drag-handle" aria-label="Verschieben"><GripVertical/></button><button type="button" className="personal-packing-toggle" onClick={()=>togglePersonal(item)}><span className="packing-check">{item.checked&&<Check/>}</span><span><strong>{item.title}</strong>{item.description&&<small>{item.description}</small>}</span></button><button type="button" className="icon-button danger-icon" onClick={()=>removePersonal(item.id)} aria-label="Löschen"><Trash2/></button></article>)}</div>
+        {!personalItems.length&&<div className="empty-card">Noch keine eigenen Ergänzungen.</div>}
+      </section>
     </>}
   </Shell></AuthGate>;
 }
