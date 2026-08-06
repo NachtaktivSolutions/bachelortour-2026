@@ -104,14 +104,17 @@ export default function PackingListPage(){
         <div className="packing-simple-list unified-packing-list">
           {adminItems.map(item=>{const isDone=checked.has(item.id);return <button type="button" key={item.id} className={`packing-item ${isDone?"done":""}`} onClick={()=>toggleAdmin(item.id)}><span className="packing-check">{isDone&&<Check/>}</span><span><strong>{item.title}<em>Pflicht</em></strong>{item.description&&<small>{item.description}</small>}</span></button>})}
 
-          {personalItems.length>0&&<div className="personal-list-divider"><span>Meine Ergänzungen</span><small>verschiebbar, bearbeitbar und löschbar</small></div>}
+          {personalItems.length>0&&<div className="personal-list-divider"><strong>Meine Ergänzungen</strong><p>Diese Einträge kannst du verschieben, bearbeiten und löschen.</p></div>}
 
           {personalItems.map(item=><article key={item.id} draggable onDragStart={()=>setDragging(item.id)} onDragEnd={()=>setDragging(null)} onDragOver={event=>event.preventDefault()} onDrop={()=>dropPersonal(item.id)} className={`personal-packing-item ${item.checked?"done":""} ${dragging===item.id?"dragging":""}`}><button type="button" className="packing-drag-handle" aria-label="Verschieben"><GripVertical/></button><button type="button" className="personal-packing-toggle" onClick={()=>togglePersonal(item)}><span className="packing-check">{item.checked&&<Check/>}</span><span><strong>{item.title}</strong>{item.description&&<small>{item.description}</small>}</span></button><button type="button" className="icon-button" onClick={()=>editPersonal(item)} aria-label="Bearbeiten"><Pencil/></button><button type="button" className="icon-button danger-icon" onClick={()=>removePersonal(item.id)} aria-label="Löschen"><Trash2/></button></article>)}
         </div>
 
         {!adminItems.length&&!personalItems.length&&<div className="empty-card">Noch keine Gegenstände eingetragen.</div>}
+      </section>
 
-        <form className="personal-packing-form integrated-personal-form" onSubmit={addPersonal}><input name="title" placeholder="Eigenen Gegenstand hinzufügen" required/><input name="description" placeholder="Hinweis (optional)"/><button className="primary-button"><Plus/>Hinzufügen</button></form>
+      <section className="packing-simple-section add-personal-packing-section">
+        <header className="packing-simple-heading add-personal-heading"><div><span className="eyebrow">DEINE EIGENE LISTE</span><h2>Gegenstand hinzufügen</h2><p>Ergänze alles, was du zusätzlich mitnehmen möchtest.</p></div><Plus/></header>
+        <form className="personal-packing-form" onSubmit={addPersonal}><input name="title" placeholder="Eigenen Gegenstand hinzufügen" required/><input name="description" placeholder="Hinweis (optional)"/><button className="primary-button"><Plus/>Hinzufügen</button></form>
       </section>
     </>}
   </Shell></AuthGate>;
