@@ -1,0 +1,182 @@
+/* V45 – robuster Modal-/Overlay-Standard für iOS, Android, Browser und installierte PWA */
+
+.app-modal-backdrop,
+.cropper-backdrop,
+.pwa-install-backdrop,
+.push-consent-backdrop{
+  position:fixed!important;
+  inset:0!important;
+  z-index:2147483000!important;
+  box-sizing:border-box!important;
+  display:grid!important;
+  place-items:center!important;
+  padding:max(10px,env(safe-area-inset-top)) 10px max(10px,env(safe-area-inset-bottom))!important;
+  overflow:hidden!important;
+  overscroll-behavior:none!important;
+  background:rgba(0,0,0,.86)!important;
+  backdrop-filter:blur(12px)!important;
+  -webkit-backdrop-filter:blur(12px)!important;
+}
+
+.app-modal-card,
+.cropper-card,
+.pwa-install-card,
+.push-consent-card{
+  position:relative!important;
+  box-sizing:border-box!important;
+  width:min(100%,680px)!important;
+  max-width:680px!important;
+  max-height:calc(100dvh - max(20px,env(safe-area-inset-top)) - max(20px,env(safe-area-inset-bottom)))!important;
+  min-height:0!important;
+  margin:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior:contain!important;
+  -webkit-overflow-scrolling:touch!important;
+  touch-action:pan-y!important;
+}
+
+/* Bildeditor: Kopf und Aktionen bleiben erreichbar, nur der Inhalt scrollt. */
+.cropper-card{
+  height:min(900px,calc(100dvh - max(20px,env(safe-area-inset-top)) - max(20px,env(safe-area-inset-bottom))))!important;
+  display:grid!important;
+  grid-template-rows:auto minmax(0,1fr) auto!important;
+  padding:0!important;
+  overflow:hidden!important;
+  border:1px solid rgba(255,255,255,.16)!important;
+  border-radius:26px!important;
+  background:linear-gradient(155deg,#1b1b1b,#0d0d0d)!important;
+  box-shadow:0 28px 90px rgba(0,0,0,.75)!important;
+}
+
+.cropper-header{
+  position:relative!important;
+  z-index:3!important;
+  display:flex!important;
+  align-items:flex-start!important;
+  justify-content:space-between!important;
+  gap:14px!important;
+  padding:22px 22px 15px!important;
+  border-bottom:1px solid rgba(255,255,255,.08)!important;
+  background:#151515!important;
+}
+.cropper-title{display:flex!important;align-items:center!important;gap:14px!important;min-width:0!important}
+.cropper-title>svg{flex:0 0 auto!important;width:30px!important;height:30px!important;margin-top:8px!important}
+.cropper-title h2{margin:4px 0 0!important;font-size:clamp(1.55rem,5.5vw,2.15rem)!important;line-height:1.06!important;overflow-wrap:anywhere!important}
+.cropper-title .eyebrow{display:block!important}
+.cropper-header .cropper-close{
+  position:static!important;
+  flex:0 0 auto!important;
+  width:48px!important;
+  height:48px!important;
+  margin:0!important;
+  border-radius:50%!important;
+  display:grid!important;
+  place-items:center!important;
+}
+
+.cropper-scroll{
+  min-height:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior:contain!important;
+  -webkit-overflow-scrolling:touch!important;
+  touch-action:pan-y!important;
+  padding:18px 22px 22px!important;
+}
+
+.cropper-stage{
+  position:relative!important;
+  width:min(100%,440px,48dvh)!important;
+  height:auto!important;
+  max-width:100%!important;
+  max-height:none!important;
+  margin:0 auto 20px!important;
+  overflow:hidden!important;
+  background:#090909!important;
+}
+.cropper-stage.round{border-radius:50%!important}
+.cropper-stage img{user-select:none!important;-webkit-user-select:none!important}
+.cropper-controls{display:grid!important;gap:18px!important}
+.cropper-controls label{display:grid!important;gap:9px!important;margin:0!important;color:#c7c7c7!important;font-size:1rem!important}
+.cropper-controls label strong{color:#fff!important}
+.cropper-controls input[type=range]{width:100%!important;min-height:34px!important;margin:0!important}
+
+.cropper-actions{
+  position:relative!important;
+  z-index:4!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,.8fr) minmax(0,1.35fr)!important;
+  gap:10px!important;
+  margin:0!important;
+  padding:14px 22px max(14px,env(safe-area-inset-bottom))!important;
+  border-top:1px solid rgba(255,255,255,.1)!important;
+  background:#111!important;
+}
+.cropper-actions button{min-width:0!important;min-height:52px!important;margin:0!important;justify-content:center!important}
+
+/* Auch bestehende einfache Dialoge dürfen niemals hinter dem Viewport verschwinden. */
+.pwa-install-card,
+.push-consent-card{
+  max-height:calc(100dvh - max(20px,env(safe-area-inset-top)) - max(20px,env(safe-area-inset-bottom)))!important;
+  overflow-y:auto!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+
+html:has(.app-modal-backdrop),
+body:has(.app-modal-backdrop),
+html:has(.cropper-backdrop),
+body:has(.cropper-backdrop),
+html:has(.pwa-install-backdrop),
+body:has(.pwa-install-backdrop),
+html:has(.push-consent-backdrop),
+body:has(.push-consent-backdrop){
+  overflow:hidden!important;
+  height:100%!important;
+}
+
+@media(max-width:600px){
+  .app-modal-backdrop,
+  .cropper-backdrop,
+  .pwa-install-backdrop,
+  .push-consent-backdrop{
+    place-items:stretch!important;
+    padding:max(6px,env(safe-area-inset-top)) 6px max(6px,env(safe-area-inset-bottom))!important;
+  }
+
+  .app-modal-card,
+  .cropper-card,
+  .pwa-install-card,
+  .push-consent-card{
+    width:100%!important;
+    max-width:none!important;
+    max-height:calc(100dvh - max(12px,env(safe-area-inset-top)) - max(12px,env(safe-area-inset-bottom)))!important;
+    border-radius:22px!important;
+  }
+
+  .cropper-card{
+    height:calc(100dvh - max(12px,env(safe-area-inset-top)) - max(12px,env(safe-area-inset-bottom)))!important;
+  }
+  .cropper-header{padding:16px 16px 12px!important}
+  .cropper-title{gap:10px!important}
+  .cropper-title>svg{width:25px!important;height:25px!important;margin-top:6px!important}
+  .cropper-title h2{font-size:clamp(1.4rem,7vw,1.85rem)!important}
+  .cropper-header .cropper-close{width:44px!important;height:44px!important}
+  .cropper-scroll{padding:14px 16px 18px!important}
+  .cropper-stage{width:min(100%,38dvh,360px)!important;margin-bottom:14px!important}
+  .cropper-controls{gap:13px!important}
+  .cropper-controls label{gap:6px!important;font-size:.94rem!important}
+  .cropper-actions{padding:10px 16px max(10px,env(safe-area-inset-bottom))!important}
+}
+
+@media(max-width:390px){
+  .cropper-actions{grid-template-columns:1fr!important}
+  .cropper-actions button{min-height:48px!important}
+}
+
+@media(max-height:700px){
+  .cropper-stage{width:min(100%,32dvh,300px)!important}
+  .cropper-header{padding-top:12px!important;padding-bottom:10px!important}
+  .cropper-scroll{padding-top:10px!important}
+  .cropper-controls{gap:10px!important}
+}
