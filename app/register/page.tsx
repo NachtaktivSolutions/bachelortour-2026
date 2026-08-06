@@ -28,7 +28,7 @@ export default function RegisterPage(){
     }
     setInfo("Account erstellt. Bitte bestätige zunächst die E-Mail und melde dich danach an.");setBusy(false);
   }
-  return <main className="auth-page"><section className="auth-card"><span className="eyebrow">FIRESTARTER 2026</span><h1>Account erstellen</h1><p>Dein Profil für die Tour.</p><form onSubmit={submit}>
+  return <main className="auth-page"><section className="auth-card"><img className="auth-logo" src="/api/branding/icon" alt="Firestarter 26"/><span className="eyebrow">FIRESTARTER 2026</span><h1>Account erstellen</h1><p>Dein Profil für die Tour.</p><form onSubmit={submit}>
     <label className="avatar-upload">{preview?<img src={preview} alt="Profilbild-Vorschau"/>:<span>Foto wählen</span>}<input name="avatar" type="file" accept="image/*" onChange={e=>{const f=e.target.files?.[0];if(f)setPreview(URL.createObjectURL(f))}}/></label>
     <div className="two-cols"><input name="first_name" placeholder="Vorname" required/><input name="last_name" placeholder="Nachname" required/></div><input name="email" type="email" placeholder="E-Mail-Adresse" required/><input name="phone" type="tel" placeholder="Handynummer" required/>
     <div className="size-picker"><span>Kleidergröße</span><div>{sizes.map(s=><button type="button" key={s} className={size===s?"active":""} onClick={()=>setSize(s)}>{s}</button>)}</div></div>
