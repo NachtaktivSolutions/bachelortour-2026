@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Home, Map, MessageCircle, Images, Users, Shield, LogOut, CalendarCog, MapPinned, Luggage, ListChecks, LayoutDashboard, ChevronDown, LifeBuoy, BellRing, Volume2, Eye, EyeOff, Smartphone } from "lucide-react";
+import { Home, Map, MessageCircle, Images, Users, Shield, LogOut, CalendarCog, MapPinned, Luggage, ListChecks, LayoutDashboard, ChevronDown, LifeBuoy, BellRing, Volume2, Eye, EyeOff, Smartphone, Sparkles } from "lucide-react";
 import { useApp } from "./app-provider";
 import { createClient } from "@/lib/supabase/client";
 import { PwaInstallPrompt } from "./pwa-install-prompt";
@@ -39,6 +39,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const easterTaps=useRef<number[]>([]);
   const adminMenuRef=useRef<HTMLDivElement>(null);
   const supabase = useMemo(()=>createClient(),[]);
+  const navItems=actualIsAdmin&&!adminPreview?[...nav,{href:"/ai-guide",label:"KI-Guide",icon:Sparkles}]:nav;
 
   const loadUnread = useCallback(async () => {
     if (!profile) return;
@@ -97,7 +98,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     </header>
     {adminPreview&&<div className="participant-preview-banner" role="status"><span><Eye size={17}/><strong>Teilnehmeransicht aktiv</strong><small>Du siehst die App jetzt wie ein normales Mitglied.</small></span><button type="button" onClick={leaveParticipantView}>Adminmodus</button></div>}
     <main className="page-content">{children}</main>
-    <nav className="bottom-nav">{nav.map(({href,label,icon:Icon})=>{const active=href==="/"?pathname==="/":pathname.startsWith(href);const isChat=href==="/chat";return <Link key={href} href={href} className={active?"active":""}><span className="nav-icon-wrap"><Icon size={22}/>{isChat&&unreadChat>0&&<span className="chat-unread-badge">{unreadChat>99?"99+":unreadChat}</span>}</span><span>{label}</span></Link>})}</nav>
+    <nav className="bottom-nav" style={{gridTemplateColumns:`repeat(${navItems.length},1fr)`}}>{navItems.map(({href,label,icon:Icon})=>{const active=href==="/"?pathname==="/":pathname.startsWith(href);const isChat=href==="/chat";return <Link key={href} href={href} className={active?"active":""}><span className="nav-icon-wrap"><Icon size={22}/>{isChat&&unreadChat>0&&<span className="chat-unread-badge">{unreadChat>99?"99+":unreadChat}</span>}</span><span>{label}</span></Link>})}</nav>
     <PwaInstallPrompt/>
     <EasterEgg open={easterOpen} onClose={()=>setEasterOpen(false)}/>
   </div>;
