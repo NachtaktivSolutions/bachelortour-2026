@@ -81,7 +81,8 @@ export default function AiGuidePage(){
 
   async function send(value?:string){
     const text=(value??question).trim();if(!text||busy)return;
-    setQuestion("");setError("");setMessages(current=>[...current,{role:"user",content:text}].slice(-MAX_STORED_MESSAGES));setBusy(true);
+    const userMessage:Message={role:"user",content:text};
+    setQuestion("");setError("");setMessages(current=>[...current,userMessage].slice(-MAX_STORED_MESSAGES));setBusy(true);
     window.setTimeout(()=>endRef.current?.scrollIntoView({behavior:"smooth",block:"end"}),60);
     try{
       const headers=await authHeader();
@@ -89,7 +90,8 @@ export default function AiGuidePage(){
       const response=await fetch("/api/ai-guide",{method:"POST",headers:{...headers,"Content-Type":"application/json"},body:JSON.stringify({question:text,history,location})});
       const data=await response.json();
       if(!response.ok)throw new Error(data.error||"Ich konnte gerade nicht antworten.");
-      setMessages(current=>[...current,{role:"assistant",content:data.answer,actions:data.actions||[]}].slice(-MAX_STORED_MESSAGES));
+      const assistantMessage:Message={role:"assistant",content:data.answer,actions:data.actions||[]};
+      setMessages(current=>[...current,assistantMessage].slice(-MAX_STORED_MESSAGES));
     }catch(e){setError(e instanceof Error?e.message:"Ich konnte gerade nicht antworten.")}finally{setBusy(false);window.setTimeout(()=>endRef.current?.scrollIntoView({behavior:"smooth",block:"end"}),80)}
   }
 
