@@ -1,5 +1,5 @@
-const CACHE_NAME="firestarter-v28";
-const OFFLINE_ROUTES=["/","/program","/packing-list","/tour-tools","/members"];
+const CACHE_NAME="firestarter-v29";
+const OFFLINE_ROUTES=["/","/program","/packing-list","/tour-tools","/members","/map"];
 
 self.addEventListener("install",event=>{
   event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(OFFLINE_ROUTES)).catch(()=>undefined));
@@ -22,23 +22,17 @@ self.addEventListener("fetch",event=>{
       const copy=response.clone();
       caches.open(CACHE_NAME).then(cache=>cache.put(request,copy));
       return response;
-    }).catch(async()=>await caches.match(request)||await caches.match("/")||Response.error()));
+    }).catch(async()=>await caches.match(request)||await caches.match(url.pathname)||await caches.match("/")||Response.error()));
     return;
   }
 
   if(url.pathname.startsWith("/api/branding/")||/\.(png|jpg|jpeg|webp|svg|woff2?)$/i.test(url.pathname)){
     event.respondWith(caches.match(request).then(cached=>{
       const refresh=fetch(request).then(response=>{
-        if(response.ok){
-          const copy=response.clone();
-          caches.open(CACHE_NAME).then(cache=>cache.put(request,copy));
-        }
+        if(response.ok){const copy=response.clone();caches.open(CACHE_NAME).then(cache=>cache.put(request,copy));}
         return response;
       }).catch(()=>cached);
-      if(cached){
-        event.waitUntil(refresh);
-        return cached;
-      }
+      if(cached){event.waitUntil(refresh);return cached;}
       return refresh;
     }));
     return;
@@ -46,10 +40,7 @@ self.addEventListener("fetch",event=>{
 
   if(url.pathname.startsWith("/_next/static/")||/\.(css|js)$/i.test(url.pathname)){
     event.respondWith(caches.match(request).then(cached=>cached||fetch(request).then(response=>{
-      if(response.ok){
-        const copy=response.clone();
-        caches.open(CACHE_NAME).then(cache=>cache.put(request,copy));
-      }
+      if(response.ok){const copy=response.clone();caches.open(CACHE_NAME).then(cache=>cache.put(request,copy));}
       return response;
     })));
   }
@@ -77,10 +68,17 @@ self.addEventListener("push",event=>{
 
 self.addEventListener("notificationclick",event=>{
   event.notification.close();
-  event.waitUntil(clients.matchAll({type:"window",includeUncontrolled:true}).then(list=>{
+  const rawTarget=event.notification?.data?.url||"/";
+  const targetUrl=new URL(rawTarget,self.location.origin).href;
+  event.waitUntil((async()=>{
+    const list=await clients.matchAll({type:"window",includeUncontrolled:true});
     for(const client of list){
-      if("focus" in client){client.navigate(event.notification.data.url);return client.focus()}
+      if("navigate" in client){
+        await client.navigate(targetUrl);
+        if("focus" in client)await client.focus();
+        return;
+      }
     }
-    return clients.openWindow(event.notification.data.url);
-  }));
+    await clients.openWindow(targetUrl);
+  })());
 });
