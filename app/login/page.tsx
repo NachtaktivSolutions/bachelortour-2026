@@ -26,7 +26,7 @@ export default function LoginPage() {
   return (
     <main className="auth-page">
       <section className="auth-card">
-        <img className="auth-logo" src="/brand/logo.jpeg" alt="Firestarter 26" />
+        <img className="auth-logo" src="/api/branding/icon" alt="Firestarter 26" />
         <span className="eyebrow">FIRESTARTER 26</span>
         <h1>Willkommen zurück</h1>
         <p>Melde dich für die Bachelortour 2026 an.</p>
