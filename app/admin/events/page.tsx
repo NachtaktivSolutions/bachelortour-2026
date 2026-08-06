@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { CalendarClock, Navigation, Pencil, Plus, Save, Trash2, X, MapPin, Flame, Star, Eye, EyeOff } from "lucide-react";
+import { BellRing, CalendarClock, Navigation, Pencil, Plus, Save, Trash2, X, MapPin, Flame, Star, Eye, EyeOff } from "lucide-react";
 import { AuthGate } from "@/components/auth-gate";
 import { Shell } from "@/components/shell";
 import { useApp } from "@/components/app-provider";
@@ -27,6 +27,23 @@ export default function AdminEventsPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  async function sendProgramPush(item: Pick<ProgramItem,"id"|"title"|"description"|"marker_type">) {
+    if (!session) return;
+    const response = await fetch("/api/push/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({
+        title: item.marker_type === "meeting" ? `Neuer Treffpunkt: ${item.title}` : `Neuer Programmpunkt: ${item.title}`,
+        body: item.description || "Es gibt einen neuen Punkt im Tourprogramm.",
+        url: `/program#program-${item.id}`,
+        tag: `program-${item.id}`
+      })
+    });
+    const json = await response.json();
+    if (!response.ok) throw new Error(json.error || "Push konnte nicht versendet werden.");
+    return json.sent ?? 0;
+  }
+
   async function save(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!session) return;
@@ -51,6 +68,7 @@ export default function AdminEventsPage() {
 
       const markerType = String(form.get("marker_type")) === "meeting" ? "meeting" : "program";
       const isVisible = form.get("is_visible") === "on";
+      const sendPush = form.get("send_push") === "on";
       const values = {
         title: String(form.get("title")).trim(),
         description: String(form.get("description")).trim() || null,
@@ -68,7 +86,12 @@ export default function AdminEventsPage() {
         : await supabase.from("program_items").insert({ ...values, created_by: session.user.id }).select().single();
       if (result.error) throw result.error;
 
-      setStatus(isVisible ? "Event gespeichert und für alle sichtbar." : "Event geheim gespeichert. Nur Admins können es sehen.");
+      let pushText = "";
+      if (isVisible && sendPush) {
+        const sent = await sendProgramPush(result.data as ProgramItem);
+        pushText = ` Push an ${sent} Geräte versendet.`;
+      }
+      setStatus((isVisible ? "Event gespeichert und für alle sichtbar." : "Event geheim gespeichert. Nur Admins können es sehen.") + pushText);
       setEditing(null); setCreating(false); await load();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Event konnte nicht gespeichert werden.");
@@ -82,8 +105,19 @@ export default function AdminEventsPage() {
       : `„${item.title}“ wieder vor den Teilnehmern verbergen?`;
     if (!window.confirm(question)) return;
     const { error } = await supabase.from("program_items").update({ is_visible: next }).eq("id", item.id);
-    setStatus(error ? error.message : next ? "Programmpunkt wurde bekanntgegeben." : "Programmpunkt wurde verborgen.");
-    if (!error) await load();
+    if (error) { setStatus(error.message); return; }
+
+    let message = next ? "Programmpunkt wurde bekanntgegeben." : "Programmpunkt wurde verborgen.";
+    if (next && window.confirm("Soll dazu jetzt auch eine Push-Nachricht an alle Teilnehmer gesendet werden?")) {
+      try {
+        const sent = await sendProgramPush(item);
+        message += ` Push an ${sent} Geräte versendet.`;
+      } catch (error) {
+        message += ` Sichtbar, aber Push fehlgeschlagen: ${error instanceof Error ? error.message : "Unbekannter Fehler"}`;
+      }
+    }
+    setStatus(message);
+    await load();
   }
 
   async function remove(item: ProgramItem) {
@@ -95,7 +129,7 @@ export default function AdminEventsPage() {
 
   const formItem = editing;
   return <AuthGate admin><Shell>
-    <div className="page-heading"><span className="eyebrow">ADMIN · PROGRAMM</span><h1>Events verwalten</h1><p>Programmpunkte geheim vorbereiten und erst bei der Bekanntgabe für alle freischalten.</p></div>
+    <div className="page-heading"><span className="eyebrow">ADMIN · PROGRAMM</span><h1>Events verwalten</h1><p>Programmpunkte geheim vorbereiten, gezielt bekanntgeben und optional direkt per Push versenden.</p></div>
     {status && <div className="status">{status}</div>}
     <div className="event-admin-toolbar"><button className="primary-button" onClick={() => { setCreating(true); setEditing(null); }}><Plus />Neues Event</button></div>
 
@@ -110,6 +144,7 @@ export default function AdminEventsPage() {
       </div></div>
       <div className="two-cols"><label>Beginn<input name="starts_at" type="datetime-local" defaultValue={isoToBerlinLocalInput(formItem?.starts_at)} required /></label><label>Ende<input name="ends_at" type="datetime-local" defaultValue={isoToBerlinLocalInput(formItem?.ends_at)} required /></label></div>
       <label className="event-visibility-choice"><input name="is_visible" type="checkbox" defaultChecked={formItem?.is_visible ?? false}/><span>{(formItem?.is_visible ?? false) ? <Eye/> : <EyeOff/>}<strong>Für Teilnehmer sichtbar</strong><small>Ausgeschaltet bleibt der Programmpunkt geheim und ist nur für Admins sichtbar.</small></span></label>
+      <label className="check-row"><input name="send_push" type="checkbox"/><BellRing/><span><strong>Push-Nachricht mitsenden</strong><small>Wird nur gesendet, wenn der Punkt sichtbar gespeichert wird.</small></span></label>
       <input name="latitude" type="hidden" defaultValue={formItem?.latitude ?? ""}/><input name="longitude" type="hidden" defaultValue={formItem?.longitude ?? ""}/>
       {formItem?.latitude != null && formItem?.longitude != null && <small className="coordinate-hint"><MapPin/>Bisherige Position: {formItem.latitude.toFixed(5)}, {formItem.longitude.toFixed(5)}</small>}
       <button className="primary-button" disabled={saving}><Save />{saving ? "Adresse wird gesucht …" : (formItem?.is_visible ? "Speichern" : "Geheim speichern")}</button>
