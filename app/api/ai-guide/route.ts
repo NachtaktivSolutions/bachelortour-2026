@@ -60,6 +60,7 @@ FAKTENTREUE:
 - Erfinde niemals Fakten, Namen, Zeiten, Adressen, Programmpunkte, Hotels oder Ziele.
 - Nutze nur FREIGEGEBENE_TOURDATEN und ORTE_IN_DER_NAEHE.
 - Bei lokalen Suchen nenne nur gelieferte Orte samt Adresse, Bewertung und Öffnungsstatus, soweit vorhanden.
+- Wenn ORTE_IN_DER_NAEHE Einträge enthält, behaupte niemals, es seien keine Orte oder keine sichere Antwort gefunden worden.
 - Keine Markdown-Links; Aktionskarten baut die App.
 
 DATENSCHUTZ UND GEHEIMNISSCHUTZ:
@@ -76,7 +77,9 @@ ORTE_IN_DER_NAEHE=${JSON.stringify(places)}`;
   const payload=await response.json();
   if(!response.ok)return NextResponse.json({error:payload?.error?.message||"Die KI hat gerade kurz einen Knoten im Kopf. Versuch’s nochmal. 😄"},{status:502});
   await logUsage(auth.supabase,auth.userId,question.length);
-  return NextResponse.json({answer:sanitizeGuideText(extractOutputText(payload)||"Dazu konnte ich gerade keine sichere Antwort bauen. Das Gremium weiß vermutlich mehr – oder hält den Deckel noch drauf. 😄"),actions:buildActions(question,context,places),needsLocation:false,remaining:Math.max(0,MAX_QUESTIONS_PER_HOUR-count-1)});
+  const modelAnswer=extractOutputText(payload);
+  const fallbackAnswer=places.length?answerFromNearbyPlaces(question,places):"Dazu konnte ich gerade keine sichere Antwort bauen. Das Gremium weiß vermutlich mehr – oder hält den Deckel noch drauf. 😄";
+  return NextResponse.json({answer:sanitizeGuideText(modelAnswer||fallbackAnswer),actions:buildActions(question,context,places),needsLocation:false,remaining:Math.max(0,MAX_QUESTIONS_PER_HOUR-count-1)});
 }
 
 async function authorize(req:NextRequest){
@@ -146,6 +149,16 @@ function answerFromVisibleTourData(question:string,context:PublicContext):{answe
 }
 
 function categoryFor(q:string){q=q.toLowerCase();if(/club|disco|tanzen/.test(q))return"nightclub";if(/restaurant|essen|pizza|burger|frühstück/.test(q))return"restaurant";if(/apotheke/.test(q))return"pharmacy";if(/geld|atm/.test(q))return"atm";if(/tank/.test(q))return"fuel";if(/toilette|klo/.test(q))return"toilets";if(/krankenhaus|arzt/.test(q))return"hospital";if(/polizei/.test(q))return"police";if(/taxi/.test(q))return"taxi";return"bar"}
+function categoryLabel(category:string){return category==="restaurant"?"Essensmöglichkeiten":category==="bar"?"Bars":category==="nightclub"?"Clubs":category==="pharmacy"?"Apotheken":category==="atm"?"Geldautomaten":category==="fuel"?"Tankstellen":category==="toilets"?"Toiletten":category==="hospital"?"Krankenhäuser":category==="police"?"Polizeistationen":category==="taxi"?"Taxistände":"Orte"}
+function answerFromNearbyPlaces(question:string,places:Place[]){
+  const category=categoryFor(question);
+  const open=places.filter(p=>p.openNow===true).length;
+  const rated=places.filter(p=>typeof p.rating==="number").sort((a,b)=>(b.rating||0)-(a.rating||0));
+  const best=rated[0];
+  const intro=`Ich habe ${places.length} passende ${categoryLabel(category)} in deiner Nähe gefunden${open?` – ${open} davon sind gerade geöffnet`:""}.`;
+  const tip=best?`Am besten bewertet ist aktuell ${best.name} mit ★ ${best.rating}.`:"Die passenden Treffer stehen direkt darunter.";
+  return`${intro}\n\n${tip}\n\nSuch dir was aus, bevor aus Hunger schlechte Gruppenentscheidungen werden. 😄`;
+}
 async function searchNearbyPlaces(question:string,location:Location):Promise<Place[]>{
   const category=categoryFor(question);
   if(process.env.GOOGLE_PLACES_API_KEY)try{
