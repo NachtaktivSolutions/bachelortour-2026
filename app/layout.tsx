@@ -43,6 +43,6 @@ import "./v47-places-admin.css";
 import "leaflet/dist/leaflet.css";
 import { AppProvider } from "@/components/app-provider";
 import { AppTour } from "@/components/app-tour";
-export const metadata:Metadata={title:"Firestarter 2026",applicationName:"Firestarter 2026",description:"News, Chat, Fotos, Karte und Live-Standorte für die Bachelortour 2026",manifest:"/manifest.webmanifest?v=47",appleWebApp:{capable:true,statusBarStyle:"black",title:"Firestarter 2026"},icons:{icon:"/api/branding/icon?v=47",apple:"/api/branding/icon?v=47"}};
+export const metadata:Metadata={title:"Firestarter 2026",applicationName:"Firestarter 2026",description:"News, Chat, Fotos, Karte und Live-Standorte für die Bachelortour 2026",manifest:"/manifest.webmanifest?v=48",appleWebApp:{capable:true,statusBarStyle:"black",title:"Firestarter 2026"},icons:{icon:"/api/branding/icon?v=48",apple:"/api/branding/icon?v=48"}};
 export const viewport:Viewport={themeColor:"#090909",width:"device-width",initialScale:1,maximumScale:1,viewportFit:"cover"};
 export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="de"><body><AppProvider>{children}<AppTour/></AppProvider></body></html>}
