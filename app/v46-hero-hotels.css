@@ -1,0 +1,22 @@
+/* V46: image-safe countdown hero and hotel edit modal */
+.premium-hero.hero-v10{
+  background-color:#050505!important;
+  background-size:100% 100%,contain!important;
+  background-position:center,center!important;
+  background-repeat:no-repeat,no-repeat!important;
+}
+.premium-hero.hero-v10::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:linear-gradient(180deg,rgba(0,0,0,.06) 0%,rgba(0,0,0,.18) 42%,rgba(0,0,0,.92) 78%,#050505 100%);
+  z-index:1;
+}
+.premium-hero.hero-v10 .hero-fire-glow{z-index:1}
+.premium-hero.hero-v10 .hero-overlay{z-index:2}
+@media(max-width:520px){
+  .premium-hero.hero-v10{background-size:100% 100%,contain!important;background-position:center,center 8%!important}
+}
+.hotel-edit-description{min-height:130px}
+.hotel-edit-meta{color:var(--muted);font-size:.82rem;margin:0}
