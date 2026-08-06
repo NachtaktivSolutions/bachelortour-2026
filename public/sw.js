@@ -1,4 +1,4 @@
-const CACHE_NAME="firestarter-v27";
+const CACHE_NAME="firestarter-v28";
 const OFFLINE_ROUTES=["/","/program","/packing-list","/tour-tools","/members"];
 
 self.addEventListener("install",event=>{
@@ -19,15 +19,39 @@ self.addEventListener("fetch",event=>{
 
   if(request.mode==="navigate"){
     event.respondWith(fetch(request).then(response=>{
-      const copy=response.clone();caches.open(CACHE_NAME).then(cache=>cache.put(request,copy));return response;
+      const copy=response.clone();
+      caches.open(CACHE_NAME).then(cache=>cache.put(request,copy));
+      return response;
     }).catch(async()=>await caches.match(request)||await caches.match("/")||Response.error()));
     return;
   }
 
-  if(url.pathname.startsWith("/_next/static/")||url.pathname.startsWith("/api/branding/")||/\.(css|js|png|jpg|jpeg|webp|svg|woff2?)$/i.test(url.pathname)){
-    event.respondWith(fetch(request).then(response=>{
-      const copy=response.clone();caches.open(CACHE_NAME).then(cache=>cache.put(request,copy));return response;
-    }).catch(()=>caches.match(request)));
+  if(url.pathname.startsWith("/api/branding/")||/\.(png|jpg|jpeg|webp|svg|woff2?)$/i.test(url.pathname)){
+    event.respondWith(caches.match(request).then(cached=>{
+      const refresh=fetch(request).then(response=>{
+        if(response.ok){
+          const copy=response.clone();
+          caches.open(CACHE_NAME).then(cache=>cache.put(request,copy));
+        }
+        return response;
+      }).catch(()=>cached);
+      if(cached){
+        event.waitUntil(refresh);
+        return cached;
+      }
+      return refresh;
+    }));
+    return;
+  }
+
+  if(url.pathname.startsWith("/_next/static/")||/\.(css|js)$/i.test(url.pathname)){
+    event.respondWith(caches.match(request).then(cached=>cached||fetch(request).then(response=>{
+      if(response.ok){
+        const copy=response.clone();
+        caches.open(CACHE_NAME).then(cache=>cache.put(request,copy));
+      }
+      return response;
+    })));
   }
 });
 
