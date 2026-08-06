@@ -56,16 +56,12 @@ export default function AiGuidePage(){
   return <AuthGate admin><Shell>
     <div style={{display:"grid",gap:14,minHeight:"calc(100vh - 140px)"}}>
       <div className="page-heading" style={{marginBottom:0}}><span className="eyebrow">ADMIN-TESTPHASE</span><h1 style={{display:"flex",alignItems:"center",gap:10}}><Sparkles color="var(--accent)"/> KI-Guide</h1><p>Persönlicher Tour-Assistent mit Standort, sichtbaren Tourdaten und direkten Navigationsaktionen.</p></div>
-
       <section style={{display:"grid",gap:10,padding:14,border:"1px solid #49301d",borderRadius:18,background:"linear-gradient(145deg,#25170e,#151515)"}}>
         <div style={{display:"flex",gap:10,alignItems:"center"}}><ShieldCheck color="#7dffad"/><div><strong>Geheimnisschutz aktiv</strong><small style={{display:"block",color:"#aaa"}}>Die KI erhält technisch nur Datensätze mit „sichtbar = ja“. Versteckte Ziele und Teilnehmerdaten werden nie übertragen.</small></div></div>
         <div style={{display:"flex",flexWrap:"wrap",gap:8,fontSize:12,color:"#bbb"}}><span style={pill(configured?"#245c3a":"#59351e")}>{configured?"OpenAI verbunden":"OpenAI-Schlüssel fehlt"}</span><span style={pill(placesConfigured?"#245c3a":"#333")}>{placesConfigured?"Google Places verbunden":"Orte über Karten-Fallback"}</span>{remaining!=null&&<span style={pill("#333")}>{remaining} Testfragen übrig</span>}</div>
       </section>
-
       <section style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,padding:"10px 12px",border:"1px solid #2b2b2b",borderRadius:16,background:"#151515"}}><div style={{display:"flex",gap:9,alignItems:"center"}}><LocateFixed size={20} color={location?"#7dffad":"#999"}/><span style={{fontSize:13,color:"#bbb"}}>{locationStatus}</span></div><button type="button" className="secondary-button" onClick={useLocation} style={{padding:"9px 12px",whiteSpace:"nowrap"}}>{location?"Aktualisieren":"Standort verwenden"}</button></section>
-
       <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:2}}>{starters.map(item=><button key={item} type="button" onClick={()=>void send(item)} disabled={busy} style={{flex:"0 0 auto",maxWidth:250,border:"1px solid #303030",borderRadius:999,background:"#1b1b1b",color:"#ddd",padding:"9px 12px",fontSize:12}}>{item}</button>)}</div>
-
       <section style={{display:"flex",flexDirection:"column",gap:12,minHeight:320,maxHeight:"calc(100vh - 430px)",overflowY:"auto",padding:"4px 2px 12px"}}>
         {messages.map((message,index)=><article key={index} style={{alignSelf:message.role==="user"?"flex-end":"flex-start",width:"min(92%,680px)",padding:"13px 14px",borderRadius:message.role==="user"?"18px 18px 5px 18px":"18px 18px 18px 5px",background:message.role==="user"?"linear-gradient(135deg,#ff6a00,#d94d00)":"#1b1b1b",border:message.role==="user"?"0":"1px solid #2d2d2d"}}>
           <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>{message.role==="assistant"&&<Bot size={19} color="var(--accent)" style={{flex:"0 0 auto",marginTop:2}}/>}<p style={{margin:0,whiteSpace:"pre-wrap",lineHeight:1.5}}>{message.content}</p></div>
@@ -74,7 +70,6 @@ export default function AiGuidePage(){
         {busy&&<div style={{alignSelf:"flex-start",padding:"12px 15px",borderRadius:"18px 18px 18px 5px",background:"#1b1b1b",color:"#aaa"}}>KI denkt sicher nach …</div>}
         <div ref={endRef}/>
       </section>
-
       {error&&<div className="error">{error}</div>}
       <form onSubmit={submit} style={{display:"grid",gridTemplateColumns:"1fr 50px",gap:8,position:"sticky",bottom:"calc(76px + var(--safe-bottom))",padding:"10px",border:"1px solid #2b2b2b",borderRadius:18,background:"rgba(15,15,15,.96)",backdropFilter:"blur(16px)",zIndex:20}}><textarea value={question} onChange={e=>setQuestion(e.target.value)} maxLength={700} rows={2} placeholder="Frag den KI-Guide …" style={{minHeight:52,maxHeight:120,resize:"none",padding:12}}/><button type="submit" disabled={busy||!question.trim()} aria-label="Frage senden" style={{border:0,borderRadius:15,background:"var(--accent)",color:"white",display:"grid",placeItems:"center"}}><Send/></button></form>
     </div>
@@ -82,7 +77,7 @@ export default function AiGuidePage(){
 }
 
 function ActionCard({action}:{action:Action}){
-  const content=<><span style={{width:38,height:38,borderRadius:12,display:"grid",placeItems:"center",background:"#2b1a0e",color:"var(--accent)">{action.type==="place"?<MapPin size={20}/>:<ExternalLink size={20}/>}</span><span style={{minWidth:0,flex:1}}><strong style={{display:"block"}}>{action.label}</strong>{action.subtitle&&<small style={{display:"block",color:"#999",overflow:"hidden",textOverflow:"ellipsis"}}>{action.subtitle}</small>}</span><Navigation size={18}/></>;
+  const content=<><span style={{width:38,height:38,borderRadius:12,display:"grid",placeItems:"center",background:"#2b1a0e",color:"var(--accent)"}}>{action.type==="place"?<MapPin size={20}/>:<ExternalLink size={20}/>}</span><span style={{minWidth:0,flex:1}}><strong style={{display:"block"}}>{action.label}</strong>{action.subtitle&&<small style={{display:"block",color:"#999",overflow:"hidden",textOverflow:"ellipsis"}}>{action.subtitle}</small>}</span><Navigation size={18}/></>;
   const style={display:"flex",alignItems:"center",gap:10,padding:10,border:"1px solid #363636",borderRadius:14,background:"#111",color:"white"} as const;
   if(action.appUrl)return <Link href={action.appUrl} style={style}>{content}</Link>;
   return <a href={action.navigationUrl||"#"} target="_blank" rel="noreferrer" style={style}>{content}</a>
