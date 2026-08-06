@@ -1,4 +1,4 @@
-const CACHE_NAME="firestarter-v24";
+const CACHE_NAME="firestarter-v25";
 const OFFLINE_ROUTES=["/","/program","/packing-list","/tour-tools","/members"];
 
 self.addEventListener("install",event=>{
@@ -29,28 +29,31 @@ self.addEventListener("fetch",event=>{
   }
 });
 
-self.addEventListener("push", event => {
-  let data = {};
-  try { data = event.data ? event.data.json() : {}; } catch { data = { body: event.data?.text() }; }
-  event.waitUntil(self.registration.showNotification(data.title || "Firestarter 2026", {
-    body: data.body || "Es gibt Neuigkeiten.",
-    icon: "/api/branding/icon?v=24",
-    badge: "/api/branding/icon?v=24",
-    image: data.image || undefined,
-    tag: data.tag || "firestarter-2026",
-    renotify: true,
-    requireInteraction: false,
-    timestamp: data.timestamp || Date.now(),
-    vibrate: [180, 80, 180],
-    silent: false,
-    data: { url: data.url || "/" }
+self.addEventListener("push",event=>{
+  let data={};
+  try{data=event.data?event.data.json():{}}catch{data={body:event.data?.text()}}
+  const timestamp=Number(data.timestamp)||Date.now();
+  const tag=data.tag||`firestarter-${timestamp}-${Math.random().toString(36).slice(2,8)}`;
+  event.waitUntil(self.registration.showNotification(data.title||"Firestarter 2026",{
+    body:data.body||"Es gibt Neuigkeiten.",
+    icon:"/api/branding/icon?v=47",
+    badge:"/api/branding/icon?v=47",
+    image:data.image||undefined,
+    tag,
+    renotify:true,
+    requireInteraction:false,
+    timestamp,
+    vibrate:[220,90,220],
+    silent:false,
+    data:{url:data.url||"/"}
   }));
 });
-self.addEventListener("notificationclick", event => {
+
+self.addEventListener("notificationclick",event=>{
   event.notification.close();
-  event.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
-    for (const client of list) {
-      if ("focus" in client) { client.navigate(event.notification.data.url); return client.focus(); }
+  event.waitUntil(clients.matchAll({type:"window",includeUncontrolled:true}).then(list=>{
+    for(const client of list){
+      if("focus" in client){client.navigate(event.notification.data.url);return client.focus()}
     }
     return clients.openWindow(event.notification.data.url);
   }));
