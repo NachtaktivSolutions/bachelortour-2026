@@ -15,6 +15,8 @@ const BUS_SIZE=58;
 const BUS_WIDTH=BUS_SIZE*1.25;
 const BUS_HALF_WIDTH=BUS_WIDTH/2;
 const EDGE_PADDING=2;
+const LEAF_DRAW_RADIUS=16;
+const LEAF_HIT_RADIUS=14;
 
 export function JointInvadersGame({open,onClose}:Props){
   const {profile}=useApp();
@@ -68,7 +70,17 @@ export function JointInvadersGame({open,onClose}:Props){
     if(now-g.lastShot>300){g.lastShot=now;g.shots.push({x:g.busX,y:canvas.height-82})}
     g.shots.forEach(s=>s.y-=0.55*dt);g.joints.forEach(j=>j.y+=j.speed*dt);
     g.shots=g.shots.filter(s=>s.y>-30);g.joints=g.joints.filter(j=>{if(j.y>canvas.height+25){g.lives--;setLives(g.lives);return false}return true});
-    for(let ji=g.joints.length-1;ji>=0;ji--){for(let si=g.shots.length-1;si>=0;si--){const j=g.joints[ji],s=g.shots[si];if(Math.abs(j.x-s.x)<j.size*.55&&Math.abs(j.y-s.y)<j.size*.55){g.joints.splice(ji,1);g.shots.splice(si,1);g.score+=10;setScore(g.score);break}}}
+    for(let ji=g.joints.length-1;ji>=0;ji--){
+      for(let si=g.shots.length-1;si>=0;si--){
+        const j=g.joints[ji],s=g.shots[si];
+        const dx=j.x-s.x,dy=j.y-s.y;
+        const jointRadius=j.size*.72;
+        const hitRadius=jointRadius+LEAF_HIT_RADIUS;
+        if(dx*dx+dy*dy<=hitRadius*hitRadius){
+          g.joints.splice(ji,1);g.shots.splice(si,1);g.score+=10;setScore(g.score);break
+        }
+      }
+    }
     draw(ctx,canvas,g);
     if(g.lives<=0){finishGame();return}
     frameRef.current=requestAnimationFrame(loop);
@@ -79,7 +91,7 @@ export function JointInvadersGame({open,onClose}:Props){
     const grd=ctx.createLinearGradient(0,0,0,canvas.height);grd.addColorStop(0,"#06120b");grd.addColorStop(1,"#020403");ctx.fillStyle=grd;ctx.fillRect(0,0,canvas.width,canvas.height);
     ctx.fillStyle="#4cff853f";for(let i=0;i<42;i++){const x=(i*131+17)%canvas.width,y=(i*197+31)%canvas.height;ctx.beginPath();ctx.arc(x,y,i%4===0?2:1,0,Math.PI*2);ctx.fill()}
     g.joints.forEach(j=>drawJoint(ctx,j));
-    g.shots.forEach(s=>drawLeaf(ctx,s.x,s.y,16));
+    g.shots.forEach(s=>drawLeaf(ctx,s.x,s.y,LEAF_DRAW_RADIUS));
     drawBus(ctx,g.busX,canvas.height-46,BUS_SIZE);
   }
 
