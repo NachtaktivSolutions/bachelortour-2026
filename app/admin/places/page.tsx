@@ -71,7 +71,7 @@ export default function PlacesAdminPage(){
   async function remove(table:"hotels"|"knowledge_items",id:string,label:string){if(!confirm(`${label} wirklich löschen?`))return;const {error}=await supabase.from(table).delete().eq("id",id);setStatus(error?error.message:`${label} gelöscht.`);await load()}
 
   return <AuthGate admin><Shell>
-    <div className="page-heading"><span className="eyebrow">GEHEIME ORTE</span><h1>Hotels & Wissenswertes</h1><p>Hotels und hilfreiche Informationen vorbereiten, bearbeiten und sichtbar schalten. Programmpunkte werden ausschließlich in „Programm verwalten“ gepflegt.</p></div>
+    <div className="page-heading"><span className="eyebrow">GEHEIME ORTE</span><h1>Hotels & Wissenswertes</h1><p>Hier verwaltest du ausschließlich Hotels und hilfreiche Informationen. Programmpunkte werden nur unter „Programm verwalten“ angelegt und bearbeitet.</p></div>
     {status&&<div className="status">{status}</div>}
     <div className="admin-grid secret-admin-grid">
       <form className="admin-card" onSubmit={addHotel}><Building2/><h2>Hotel anlegen</h2><input name="name" placeholder="Hotelname" required/><input name="address" placeholder="Vollständige Adresse" required/><textarea name="description" placeholder="Hinweise, Check-in, Zimmer …"/><label className="check-row"><input name="is_visible" type="checkbox"/> Sofort sichtbar schalten</label><button className="primary-button" disabled={busy}><Plus/>Hotel speichern</button></form>
