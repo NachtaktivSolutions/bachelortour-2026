@@ -21,6 +21,7 @@ export default function PackingListPage(){
   const [loading,setLoading]=useState(true);
   const [status,setStatus]=useState("");
   const [dragging,setDragging]=useState<string|null>(null);
+  const [editMode,setEditMode]=useState(false);
 
   const load=useCallback(async()=>{
     if(!profile)return;
@@ -79,13 +80,15 @@ export default function PackingListPage(){
   }
 
   async function dropPersonal(targetId:string){
-    if(!dragging||dragging===targetId)return;
+    if(!editMode||!dragging||dragging===targetId)return;
     const from=personalItems.findIndex(item=>item.id===dragging);const to=personalItems.findIndex(item=>item.id===targetId);if(from<0||to<0)return;
     const next=[...personalItems];const [moved]=next.splice(from,1);next.splice(to,0,moved);
     const ordered=next.map((item,index)=>({...item,sort_order:index}));setDragging(null);setPersonalItems(ordered);
     const updates=await Promise.all(ordered.map(item=>supabase.from("personal_packing_items").update({sort_order:item.sort_order}).eq("id",item.id)));
     const error=updates.find(result=>result.error)?.error;if(error){setStatus(error.message);await load()}
   }
+
+  function toggleEditMode(){setDragging(null);setEditMode(current=>!current)}
 
   const total=adminItems.length+personalItems.length;
   const done=checked.size+personalItems.filter(item=>item.checked).length;
@@ -104,9 +107,13 @@ export default function PackingListPage(){
         <div className="packing-simple-list unified-packing-list">
           {adminItems.map(item=>{const isDone=checked.has(item.id);return <button type="button" key={item.id} className={`packing-item ${isDone?"done":""}`} onClick={()=>toggleAdmin(item.id)}><span className="packing-check">{isDone&&<Check/>}</span><span><strong>{item.title}<em>Pflicht</em></strong>{item.description&&<small>{item.description}</small>}</span></button>})}
 
-          {personalItems.length>0&&<div className="personal-list-divider"><strong>Meine Ergänzungen</strong><p>Diese Einträge kannst du verschieben, bearbeiten und löschen.</p></div>}
+          {personalItems.length>0&&<div className="personal-list-divider"><div><strong>Meine Ergänzungen</strong><p>{editMode?"Ziehe die Einträge in die gewünschte Reihenfolge oder bearbeite sie.":"Deine persönlichen Gegenstände stehen direkt unter den Pflichtsachen."}</p></div><button type="button" className={`personal-edit-mode-button ${editMode?"active":""}`} onClick={toggleEditMode}>{editMode?<><Check/>Fertig</>:<><Pencil/>Bearbeiten</>}</button></div>}
 
-          {personalItems.map(item=><article key={item.id} draggable onDragStart={()=>setDragging(item.id)} onDragEnd={()=>setDragging(null)} onDragOver={event=>event.preventDefault()} onDrop={()=>dropPersonal(item.id)} className={`personal-packing-item ${item.checked?"done":""} ${dragging===item.id?"dragging":""}`}><button type="button" className="packing-drag-handle" aria-label="Verschieben"><GripVertical/></button><button type="button" className="personal-packing-toggle" onClick={()=>togglePersonal(item)}><span className="packing-check">{item.checked&&<Check/>}</span><span><strong>{item.title}</strong>{item.description&&<small>{item.description}</small>}</span></button><button type="button" className="icon-button" onClick={()=>editPersonal(item)} aria-label="Bearbeiten"><Pencil/></button><button type="button" className="icon-button danger-icon" onClick={()=>removePersonal(item.id)} aria-label="Löschen"><Trash2/></button></article>)}
+          {personalItems.map(item=><article key={item.id} draggable={editMode} onDragStart={()=>editMode&&setDragging(item.id)} onDragEnd={()=>setDragging(null)} onDragOver={event=>{if(editMode)event.preventDefault()}} onDrop={()=>dropPersonal(item.id)} className={`personal-packing-item ${item.checked?"done":""} ${dragging===item.id?"dragging":""} ${editMode?"editing":"viewing"}`}>
+            {editMode&&<button type="button" className="packing-drag-handle" aria-label="Verschieben"><GripVertical/></button>}
+            <button type="button" className="personal-packing-toggle" onClick={()=>togglePersonal(item)}><span className="packing-check">{item.checked&&<Check/>}</span><span><strong>{item.title}</strong>{item.description&&<small>{item.description}</small>}</span></button>
+            {editMode&&<div className="personal-packing-actions"><button type="button" className="icon-button" onClick={()=>editPersonal(item)} aria-label="Bearbeiten"><Pencil/></button><button type="button" className="icon-button danger-icon" onClick={()=>removePersonal(item.id)} aria-label="Löschen"><Trash2/></button></div>}
+          </article>)}
         </div>
 
         {!adminItems.length&&!personalItems.length&&<div className="empty-card">Noch keine Gegenstände eingetragen.</div>}
