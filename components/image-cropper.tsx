@@ -77,35 +77,43 @@ export function ImageCropper({ file, aspect = 1, round = false, title = "Bild zu
     }
   }
 
-  return <div className="cropper-backdrop" onClick={busy?undefined:onCancel}>
-    <section className="cropper-card" onClick={event => event.stopPropagation()} role="dialog" aria-modal="true" aria-label={title}>
-      <button type="button" className="modal-close" onClick={onCancel} disabled={busy} aria-label="Bildeditor schließen"><X /></button>
-      <div className="cropper-title"><Crop /><div><span className="eyebrow">BILDAUSSCHNITT</span><h2>{title}</h2></div></div>
-      <div className={`cropper-stage ${round ? "round" : ""}`} style={{ aspectRatio: String(aspect) }}>
-        <img
-          src={sourceUrl}
-          alt="Vorschau"
-          draggable={false}
-          onError={()=>setError("Dieses Bildformat kann auf diesem Gerät nicht geöffnet werden.")}
-          style={{
-            position: "absolute",
-            width: "100%",
-            height: "100%",
-            inset: 0,
-            objectFit: "cover",
-            objectPosition: `${x}% ${y}%`,
-            transform: `scale(${zoom})`,
-            transformOrigin: `${x}% ${y}%`,
-            transition: "transform 80ms linear, object-position 80ms linear",
-            touchAction:"none"
-          }}
-        />
+  return <div className="cropper-backdrop app-modal-backdrop" onClick={busy?undefined:onCancel}>
+    <section className="cropper-card app-modal-card" onClick={event => event.stopPropagation()} role="dialog" aria-modal="true" aria-label={title}>
+      <header className="cropper-header">
+        <div className="cropper-title"><Crop /><div><span className="eyebrow">BILDAUSSCHNITT</span><h2>{title}</h2></div></div>
+        <button type="button" className="modal-close cropper-close" onClick={onCancel} disabled={busy} aria-label="Bildeditor schließen"><X /></button>
+      </header>
+
+      <div className="cropper-scroll app-modal-scroll">
+        <div className={`cropper-stage ${round ? "round" : ""}`} style={{ aspectRatio: String(aspect) }}>
+          <img
+            src={sourceUrl}
+            alt="Vorschau"
+            draggable={false}
+            onError={()=>setError("Dieses Bildformat kann auf diesem Gerät nicht geöffnet werden.")}
+            style={{
+              position: "absolute",
+              width: "100%",
+              height: "100%",
+              inset: 0,
+              objectFit: "cover",
+              objectPosition: `${x}% ${y}%`,
+              transform: `scale(${zoom})`,
+              transformOrigin: `${x}% ${y}%`,
+              transition: "transform 80ms linear, object-position 80ms linear",
+              touchAction:"none"
+            }}
+          />
+        </div>
+        <div className="cropper-controls">
+          <label>Zoom <strong>{Math.round(zoom * 100)} %</strong><input type="range" min="1" max="3" step="0.01" value={zoom} onChange={e => setZoom(Number(e.target.value))} disabled={busy}/></label>
+          <label>Horizontal positionieren<input type="range" min="0" max="100" value={x} onChange={e => setX(Number(e.target.value))} disabled={busy}/></label>
+          <label>Vertikal positionieren<input type="range" min="0" max="100" value={y} onChange={e => setY(Number(e.target.value))} disabled={busy}/></label>
+          {error&&<div className="status error" role="alert"><AlertTriangle/>{error}</div>}
+        </div>
       </div>
-      <label>Zoom <strong>{Math.round(zoom * 100)} %</strong><input type="range" min="1" max="3" step="0.01" value={zoom} onChange={e => setZoom(Number(e.target.value))} disabled={busy}/></label>
-      <label>Horizontal positionieren<input type="range" min="0" max="100" value={x} onChange={e => setX(Number(e.target.value))} disabled={busy}/></label>
-      <label>Vertikal positionieren<input type="range" min="0" max="100" value={y} onChange={e => setY(Number(e.target.value))} disabled={busy}/></label>
-      {error&&<div className="status error" role="alert"><AlertTriangle/>{error}</div>}
-      <div className="cropper-actions"><button type="button" className="secondary-button" onClick={onCancel} disabled={busy}>Abbrechen</button><button type="button" className="primary-button" onClick={finish} disabled={busy||Boolean(error)}>{busy ? "Wird zugeschnitten …" : "Ausschnitt übernehmen"}</button></div>
+
+      <footer className="cropper-actions app-modal-actions"><button type="button" className="secondary-button" onClick={onCancel} disabled={busy}>Abbrechen</button><button type="button" className="primary-button" onClick={finish} disabled={busy||Boolean(error)}>{busy ? "Wird zugeschnitten …" : "Ausschnitt übernehmen"}</button></footer>
     </section>
   </div>;
 }
