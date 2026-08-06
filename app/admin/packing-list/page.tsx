@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BellRing, Eye, EyeOff, GripVertical, PackagePlus, Trash2 } from "lucide-react";
 import { AuthGate } from "@/components/auth-gate";
 import { Shell } from "@/components/shell";
@@ -18,6 +18,10 @@ export default function PackingAdminPage(){
   const [status,setStatus]=useState("");
   const [busy,setBusy]=useState(false);
   const [dragging,setDragging]=useState<string|null>(null);
+  const itemsRef=useRef<Item[]>([]);
+  const draggingRef=useRef<string|null>(null);
+
+  useEffect(()=>{itemsRef.current=items},[items]);
 
   const load=useCallback(async()=>{
     const [s,i]=await Promise.all([
@@ -76,20 +80,37 @@ export default function PackingAdminPage(){
     setBusy(false);
   }
 
-  async function dropItem(targetId:string){
-    if(!dragging||dragging===targetId)return;
-    const from=items.findIndex(item=>item.id===dragging);
-    const to=items.findIndex(item=>item.id===targetId);
-    if(from<0||to<0)return;
-    const next=[...items];
-    const [moved]=next.splice(from,1);
-    next.splice(to,0,moved);
-    const ordered=next.map((item,index)=>({...item,sort_order:index}));
-    setDragging(null);setItems(ordered);
+  function moveItem(targetId:string){
+    const draggedId=draggingRef.current;if(!draggedId||draggedId===targetId)return;
+    setItems(current=>{
+      const from=current.findIndex(item=>item.id===draggedId);const to=current.findIndex(item=>item.id===targetId);if(from<0||to<0)return current;
+      const next=[...current];const [moved]=next.splice(from,1);next.splice(to,0,moved);
+      const ordered=next.map((item,index)=>({...item,sort_order:index}));itemsRef.current=ordered;return ordered;
+    });
+  }
+
+  async function saveOrder(){
+    const ordered=itemsRef.current;
     const updates=await Promise.all(ordered.map(item=>supabase.from("packing_items").update({sort_order:item.sort_order,is_required:true,category_id:null}).eq("id",item.id)));
     const error=updates.find(result=>result.error)?.error;
     setStatus(error?error.message:"Reihenfolge gespeichert.");
     if(error)await load();
+  }
+
+  function startDrag(event:ReactPointerEvent<HTMLButtonElement>,id:string){
+    event.preventDefault();draggingRef.current=id;setDragging(id);event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function moveDrag(event:ReactPointerEvent<HTMLButtonElement>){
+    if(!draggingRef.current)return;event.preventDefault();
+    const target=(document.elementFromPoint(event.clientX,event.clientY) as HTMLElement|null)?.closest<HTMLElement>("[data-packing-admin-id]");
+    const targetId=target?.dataset.packingAdminId;if(targetId)moveItem(targetId);
+  }
+
+  async function endDrag(event:ReactPointerEvent<HTMLButtonElement>){
+    if(!draggingRef.current)return;event.preventDefault();
+    if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);
+    draggingRef.current=null;setDragging(null);await saveOrder();
   }
 
   return <AuthGate admin><Shell>
@@ -100,7 +121,7 @@ export default function PackingAdminPage(){
 
       <form className="admin-card" onSubmit={addItem}><PackagePlus/><h2>Pflichtgegenstand hinzufügen</h2><p>Dieser Eintrag erscheint automatisch bei allen Teilnehmern und kann dort nur abgehakt werden.</p><input name="title" placeholder="z. B. Zahnbürste" required/><textarea name="description" placeholder="Zusatzhinweis (optional)"/><button className="primary-button"><PackagePlus/>Pflichtgegenstand speichern</button></form>
 
-      <section className="admin-card admin-wide packing-sort-section"><h2>Aktuelle Pflicht-Packliste</h2><div className="packing-sort-hint"><GripVertical/><span>Gegenstände am Griff gedrückt halten und per Drag & Drop frei sortieren.</span></div><div className="packing-sort-items standalone">{items.map(item=><div className={`packing-sort-item ${dragging===item.id?"dragging":""}`} key={item.id} draggable onDragStart={()=>setDragging(item.id)} onDragEnd={()=>setDragging(null)} onDragOver={event=>event.preventDefault()} onDrop={()=>dropItem(item.id)}><button type="button" className="packing-drag-handle" aria-label={`${item.title} verschieben`}><GripVertical/></button><div><strong>{item.title}<em className="required-pill">Pflicht</em></strong><small>{item.description||"Ohne Zusatzhinweis"}</small></div><button type="button" className="icon-button danger-icon" onClick={()=>removeItem(item.id)} title="Pflichtgegenstand löschen"><Trash2/></button></div>)}</div>{!items.length&&<div className="empty-card">Noch keine Pflichtgegenstände eingetragen.</div>}</section>
+      <section className="admin-card admin-wide packing-sort-section"><h2>Aktuelle Pflicht-Packliste</h2><div className="packing-sort-hint"><GripVertical/><span>Am Griff gedrückt halten und den Gegenstand nach oben oder unten ziehen.</span></div><div className="packing-sort-items standalone">{items.map(item=><div className={`packing-sort-item ${dragging===item.id?"dragging":""}`} key={item.id} data-packing-admin-id={item.id}><button type="button" className="packing-drag-handle" aria-label={`${item.title} verschieben`} onPointerDown={event=>startDrag(event,item.id)} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}><GripVertical/></button><div><strong>{item.title}<em className="required-pill">Pflicht</em></strong><small>{item.description||"Ohne Zusatzhinweis"}</small></div><button type="button" className="icon-button danger-icon" onClick={()=>removeItem(item.id)} title="Pflichtgegenstand löschen"><Trash2/></button></div>)}</div>{!items.length&&<div className="empty-card">Noch keine Pflichtgegenstände eingetragen.</div>}</section>
     </div>
   </Shell></AuthGate>;
 }
