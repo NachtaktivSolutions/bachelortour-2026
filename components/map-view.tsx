@@ -33,18 +33,24 @@ export function MapView({pins,programItems,members,fitRequest}:Props){
   const [searchError,setSearchError]=useState("");
   const [mapMode,setMapMode]=useState<"standard"|"dark"|"satellite">("standard");
   const [selected,setSelected]=useState<Selected>(null);
+  const lastMarkerTap=useRef(0);
   const orderedMembers=[...visibleMembers].sort((a,b)=>Number(statusClass(a.participant_status||"")==="status-help")-Number(statusClass(b.participant_status||"")==="status-help"));
   useEffect(()=>{localStorage.setItem("firestarter-map-layers",JSON.stringify(layers))},[layers]);
   useEffect(()=>{const close=()=>{setSelected(null);setSelectedTarget(null)};const key=(e:KeyboardEvent)=>{if(e.key==="Escape")close()};const visibility=()=>{if(document.visibilityState!=="visible")close()};window.addEventListener("pagehide",close);document.addEventListener("visibilitychange",visibility);document.addEventListener("keydown",key);return()=>{window.removeEventListener("pagehide",close);document.removeEventListener("visibilitychange",visibility);document.removeEventListener("keydown",key)}},[]);
 
-  function choose(next:Exclude<Selected,null>,target:[number,number],event?:L.LeafletMouseEvent){event?.originalEvent?.stopPropagation();setMenuOpen(false);setSelected(next);setSelectedTarget(target)}
+  function choose(next:Exclude<Selected,null>,target:[number,number],event?:L.LeafletMouseEvent){
+    lastMarkerTap.current=Date.now();
+    if(event?.originalEvent){L.DomEvent.stopPropagation(event.originalEvent);event.originalEvent.preventDefault()}
+    setMenuOpen(false);setSelected(next);setSelectedTarget(target);
+  }
+  function handleMapClick(){if(Date.now()-lastMarkerTap.current<350)return;setSelected(null);setSelectedTarget(null);setMenuOpen(false)}
   async function search(e:FormEvent){e.preventDefault();const term=query.trim();if(!term||searching)return;setSelected(null);setSelectedTarget(null);const localCenter=mapCenter;const cacheKey=searchCacheKey(term,localCenter[0],localCenter[1]);const cached=readSearchCache(cacheKey);setSearchError("");if(cached){setSearchTarget([cached.latitude,cached.longitude]);return}setSearching(true);try{const params=new URLSearchParams({q:term,lat:String(localCenter[0]),lon:String(localCenter[1])});const res=await fetch(`/api/map-search?${params.toString()}`);const data=await res.json();if(!res.ok||!Number.isFinite(data.latitude)||!Number.isFinite(data.longitude))throw new Error(data.error||"Kein Treffer gefunden.");const result:SearchResult={latitude:data.latitude,longitude:data.longitude,name:data.name,distanceKm:data.distanceKm};writeSearchCache(cacheKey,result);setSearchTarget([result.latitude,result.longitude])}catch(error){setSearchError(error instanceof Error?error.message:"Suche nicht verfügbar.")}finally{setSearching(false)}}
   const closeSelection=()=>{setSelected(null);setSelectedTarget(null)};
 
   return <div className="smart-map-wrap" style={{position:"relative"}}>
     <MapContainer center={center} zoom={14} className="map-container">
       <TileLayer attribution={mapMode==="satellite"?'Tiles © Esri':'&copy; OpenStreetMap'} url={tileUrl(mapMode)}/>
-      <MapController points={points} fitRequest={fitRequest} layers={layers} setPois={setPois} searchTarget={searchTarget} selectedTarget={selectedTarget} onCenterChange={setMapCenter} onMapClick={()=>{closeSelection();setMenuOpen(false)}}/>
+      <MapController points={points} fitRequest={fitRequest} layers={layers} setPois={setPois} searchTarget={searchTarget} selectedTarget={selectedTarget} onCenterChange={setMapCenter} onMapClick={handleMapClick}/>
       {programItems.filter(i=>i.latitude!=null&&i.longitude!=null).map(item=>{const markerType=item.marker_type??"program";return <Marker key={`program-${item.id}`} position={[item.latitude!,item.longitude!]} icon={eventMarker(markerType)} zIndexOffset={markerType==="meeting"?440:380} eventHandlers={{click:e=>choose({kind:"program",item},[item.latitude!,item.longitude!],e)}}/>})}
       {pins.map(pin=><Marker key={`pin-${pin.id}`} position={[pin.latitude,pin.longitude]} icon={eventMarker("meeting")} zIndexOffset={450} eventHandlers={{click:e=>choose({kind:"pin",item:pin},[pin.latitude,pin.longitude],e)}}/>)}
       {pois.map(poi=><Marker key={`poi-${poi.id}`} position={[poi.latitude,poi.longitude]} icon={poiIcon(poi.category)} zIndexOffset={120} eventHandlers={{click:e=>choose({kind:"poi",item:poi},[poi.latitude,poi.longitude],e)}}/>)}
@@ -60,12 +66,34 @@ export function MapView({pins,programItems,members,fitRequest}:Props){
 function MapDetailSheet({selected,onClose}:{selected:Exclude<Selected,null>;onClose:()=>void}){let content:React.ReactNode;let nav="";if(selected.kind==="program"){const i=selected.item,m=i.marker_type??"program";nav=navigationUrl(i.latitude!,i.longitude!,i.address);content=<><span className={`event-popup-kind ${m}`}>{m==="meeting"?"Treffpunkt":"Programmpunkt"}</span><strong>{i.title}</strong>{i.starts_at&&<small>{formatBerlin(i.starts_at)}</small>}{i.description&&<p>{i.description}</p>}{i.address&&<span>{i.address}</span>}</>}else if(selected.kind==="pin"){const i=selected.item;nav=navigationUrl(i.latitude,i.longitude,i.address);content=<><span className="event-popup-kind meeting">Treffpunkt</span><strong>{i.title}</strong>{i.description&&<p>{i.description}</p>}{i.address&&<span>{i.address}</span>}</>}else if(selected.kind==="poi"){const i=selected.item;nav=navigationUrl(i.latitude,i.longitude,i.address);content=<><span>{categoryEmoji(i.category)} {categoryLabel(i.category)}</span><strong>{i.name}</strong>{i.address&&<small>{i.address}</small>}</>}else{const m=selected.item,s=m.participant_status||"kein Status";nav=navigationUrl(m.latitude!,m.longitude!);content=<><div className="member-popup-head"><span className="member-popup-avatar">{m.avatar_url?<img src={m.avatar_url} alt=""/>:<b>{initials(m.name)}</b>}</span><div><strong>{selected.own?"Mein Standort":m.name}</strong><span className={`map-status-badge ${statusClass(s)}`}>{statusDisplay(s)}</span></div></div><small>{m.location_updated_at?relativeUpdated(m.location_updated_at,selected.stale):"Standort geteilt"}</small>{selected.stale&&<p>Dieser Standort wurde seit mehr als 30 Minuten nicht aktualisiert.</p>}{!selected.own&&m.phone&&<a href={`tel:${m.phone}`}>Anrufen</a>}</>}return <section aria-label="Kartendetails" style={{position:"absolute",left:10,right:10,bottom:10,zIndex:900,maxHeight:"45%",overflowY:"auto",padding:"18px",borderRadius:"22px",background:"rgba(12,12,12,.97)",boxShadow:"0 12px 40px rgba(0,0,0,.55)",border:"1px solid rgba(255,255,255,.12)",pointerEvents:"auto",touchAction:"pan-y"}}><button type="button" aria-label="Details schließen" onClick={onClose} style={{position:"absolute",right:10,top:10,width:38,height:38,borderRadius:"50%",border:"1px solid rgba(255,255,255,.16)",background:"#202020",color:"white",fontSize:24,lineHeight:1}}>×</button><div className="map-popup" style={{paddingRight:38}}>{content}<a target="_blank" rel="noreferrer" href={nav} onClick={onClose}>Dorthin navigieren</a></div></section>}
 
 function MapController({points,fitRequest,layers,setPois,searchTarget,selectedTarget,onCenterChange,onMapClick}:{points:[number,number][];fitRequest:number;layers:string[];setPois:(v:Poi[])=>void;searchTarget:[number,number]|null;selectedTarget:[number,number]|null;onCenterChange:(v:[number,number])=>void;onMapClick:()=>void}){
-  const map=useMap();const initialized=useRef(false);const lastFit=useRef(fitRequest);const loadTimer=useRef<number|null>(null);const abortRef=useRef<AbortController|null>(null);const lastLoad=useRef<{lat:number;lon:number;zoom:number;layers:string}|undefined>(undefined);
+  const map=useMap();
+  const initialized=useRef(false);
+  const lastFit=useRef(fitRequest);
+  const loadTimer=useRef<number|null>(null);
+  const abortRef=useRef<AbortController|null>(null);
+  const lastLoad=useRef<{lat:number;lon:number;zoom:number;layers:string}|undefined>(undefined);
+  const returnView=useRef<{center:L.LatLng;zoom:number}|null>(null);
+  const wasSelected=useRef(false);
   useEffect(()=>{const t=window.setTimeout(()=>{map.invalidateSize();const c=map.getCenter();onCenterChange([c.lat,c.lng]);if(initialized.current||!points.length)return;fitAll(map,points);initialized.current=true},150);return()=>window.clearTimeout(t)},[map,points,onCenterChange]);
-  useEffect(()=>{if(lastFit.current===fitRequest)return;lastFit.current=fitRequest;fitAll(map,points)},[fitRequest,map,points]);
-  useEffect(()=>{if(!selectedTarget)return;const zoom=Math.max(map.getZoom(),15);const markerPoint=map.project(L.latLng(selectedTarget),zoom);const centerPoint=markerPoint.add([0,115]);const centered=map.unproject(centerPoint,zoom);map.flyTo(centered,zoom,{duration:.35,easeLinearity:.35})},[map,selectedTarget]);
+  useEffect(()=>{if(lastFit.current===fitRequest)return;lastFit.current=fitRequest;returnView.current=null;wasSelected.current=false;fitAll(map,points)},[fitRequest,map,points]);
+  useEffect(()=>{
+    if(selectedTarget){
+      if(!wasSelected.current)returnView.current={center:map.getCenter(),zoom:map.getZoom()};
+      wasSelected.current=true;
+      const zoom=Math.max(map.getZoom(),15);
+      const markerPoint=map.project(L.latLng(selectedTarget),zoom);
+      const centered=map.unproject(markerPoint.add([0,115]),zoom);
+      map.flyTo(centered,zoom,{duration:.35,easeLinearity:.35});
+      return;
+    }
+    if(wasSelected.current&&returnView.current){
+      const previous=returnView.current;
+      map.flyTo(previous.center,previous.zoom,{duration:.4,easeLinearity:.35});
+    }
+    wasSelected.current=false;returnView.current=null;
+  },[map,selectedTarget]);
   const requestPois=async(lat:number,lon:number,force=false)=>{if(!layers.length){setPois([]);return}if(map.getZoom()<13)return;const layerKey=[...layers].sort().join(","),zoom=map.getZoom();if(!force&&lastLoad.current&&lastLoad.current.layers===layerKey&&Math.abs(lastLoad.current.zoom-zoom)<1&&haversineKm(lastLoad.current.lat,lastLoad.current.lon,lat,lon)<.75)return;lastLoad.current={lat,lon,zoom,layers:layerKey};const key=poiCacheKey(lat,lon,layerKey,zoom),cached=readPoiCache(key);if(cached){setPois(cached);return}abortRef.current?.abort();const controller=new AbortController();abortRef.current=controller;try{const radius=zoom>=16?2600:zoom>=14?4000:5000;const res=await fetch(`/api/pois?lat=${lat}&lon=${lon}&radius=${radius}&categories=${layerKey}`,{signal:controller.signal});const data=await res.json();if(res.ok){const fresh=(data.pois??[]) as Poi[];writePoiCache(key,fresh);setPois(fresh)}}catch(error){if((error as Error).name!=="AbortError"&&cached)setPois(cached)}};
-  useEffect(()=>{if(!searchTarget)return;requestPois(searchTarget[0],searchTarget[1],true);map.flyTo(searchTarget,16,{duration:.8})},[map,searchTarget]);
+  useEffect(()=>{if(!searchTarget)return;returnView.current=null;wasSelected.current=false;requestPois(searchTarget[0],searchTarget[1],true);map.flyTo(searchTarget,16,{duration:.8})},[map,searchTarget]);
   const scheduleLoad=()=>{const c=map.getCenter();onCenterChange([c.lat,c.lng]);if(loadTimer.current)window.clearTimeout(loadTimer.current);loadTimer.current=window.setTimeout(()=>requestPois(c.lat,c.lng),220)};useMapEvents({click:onMapClick,moveend:scheduleLoad,zoomend:scheduleLoad});useEffect(()=>{const c=map.getCenter();onCenterChange([c.lat,c.lng]);requestPois(c.lat,c.lng,true);return()=>{if(loadTimer.current)window.clearTimeout(loadTimer.current);abortRef.current?.abort()}},[layers]);return null
 }
 
