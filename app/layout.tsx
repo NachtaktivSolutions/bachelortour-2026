@@ -36,6 +36,7 @@ import "./v41-unified-modals.css";
 import "./v42-status-colors.css";
 import "./v42-device-health.css";
 import "./v43-app-tour.css";
+import "./v44-simple-packing.css";
 import "leaflet/dist/leaflet.css";
 import { AppProvider } from "@/components/app-provider";
 import { AppTour } from "@/components/app-tour";
