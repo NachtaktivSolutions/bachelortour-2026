@@ -24,7 +24,7 @@ const adminLinks = [
   { href: "/admin/events", label: "Programm verwalten", description: "Programmpunkte anlegen und bearbeiten", icon: CalendarCog },
   { href: "/admin/places", label: "Hotels & Wissenswertes", description: "Geheime Orte und Unterkunft steuern", icon: MapPinned },
   { href: "/admin/packing-list", label: "Packliste verwalten", description: "Rubriken, Gegenstände und Freigabe", icon: ListChecks },
-  { href: "/admin/sounds", label: "Tour-Sounds", description: "Sounds hochladen und freischalten", icon: Volume2 },
+  { href: "/admin/sounds", label: "Tour-Medien", description: "Sounds und Videos hochladen und freischalten", icon: Volume2 },
   { href: "/admin/tour-tools", label: "Notfall & Check-ins", description: "Notfallkontakte und Anwesenheit", icon: LifeBuoy }
 ];
 
