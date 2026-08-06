@@ -1,5 +1,6 @@
 "use client";
 
+import "./ai-guide.css";
 import Link from "next/link";
 import { FormEvent, useMemo, useRef, useState } from "react";
 import { Bot, ExternalLink, MapPin, Navigation, Send, Sparkles } from "lucide-react";
