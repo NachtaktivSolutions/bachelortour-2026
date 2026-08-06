@@ -13,6 +13,7 @@ const nav = [
   { href: "/", label: "Home", icon: Home },
   { href: "/map", label: "Karte", icon: Map },
   { href: "/chat", label: "Chat", icon: MessageCircle },
+  { href: "/ai-guide", label: "KI-Guide", icon: Sparkles },
   { href: "/gallery", label: "Fotos", icon: Images },
   { href: "/members", label: "Bachelor", icon: Users }
 ];
@@ -39,7 +40,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const easterTaps=useRef<number[]>([]);
   const adminMenuRef=useRef<HTMLDivElement>(null);
   const supabase = useMemo(()=>createClient(),[]);
-  const navItems=actualIsAdmin&&!adminPreview?[...nav,{href:"/ai-guide",label:"KI-Guide",icon:Sparkles}]:nav;
+  const navItems=nav;
 
   const loadUnread = useCallback(async () => {
     if (!profile) return;
