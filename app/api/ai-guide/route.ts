@@ -39,11 +39,16 @@ export async function POST(req:NextRequest){
   if(error)return NextResponse.json({error:"Die freigegebenen Tourdaten wollten gerade nicht mitspielen. Versuch’s gleich nochmal. 😄"},{status:500});
   const context=(data||{program_items:[],hotels:[],knowledge:[],news:[]}) as PublicContext;
   const location=validLocation(body.location)?body.location!:null;
-  const nearby=asksForNearby(question);
-  if(!nearby){
-    const deterministic=answerFromVisibleTourData(question,context);
-    if(deterministic){await logUsage(auth.supabase,auth.userId,question.length);return NextResponse.json({...deterministic,answer:sanitizeGuideText(deterministic.answer),remaining:Math.max(0,MAX_QUESTIONS_PER_HOUR-count-1)})}
+
+  // Freigegebene Tourfragen werden immer zuerst deterministisch beantwortet.
+  // Dadurch kann ein Wort wie „nächste“ niemals versehentlich eine lokale Barsuche auslösen.
+  const deterministic=answerFromVisibleTourData(question,context);
+  if(deterministic){
+    await logUsage(auth.supabase,auth.userId,question.length);
+    return NextResponse.json({...deterministic,answer:sanitizeGuideText(deterministic.answer),remaining:Math.max(0,MAX_QUESTIONS_PER_HOUR-count-1)});
   }
+
+  const nearby=asksForNearby(question);
   if(nearby&&!location)return NextResponse.json({answer:"Dafür brauch ich kurz deinen Standort – sonst such ich dir am Ende eine Apotheke in Buxtehude raus. 😄 Tippe auf „Standort verwenden“ oder nenn mir einen Ort.",actions:[],needsLocation:true,remaining:Math.max(0,MAX_QUESTIONS_PER_HOUR-count)});
   const places=location&&nearby?await searchNearbyPlaces(question,location):[];
   const history=(body.history||[]).filter(m=>(m.role==="user"||m.role==="assistant")&&typeof m.content==="string").slice(-8).map(m=>({role:m.role,content:m.content.slice(0,1200)}));
@@ -122,7 +127,10 @@ async function answerPersonLocation(supabase:any,query:string):Promise<{answer:s
   return{answer:`${person.name} teilt gerade den Standort. Letzte Aktualisierung: ${freshness}. 📍\n\nTippe auf die Karte – bevor ihr euch gegenseitig im Kreis sucht. 😄`,actions:[{type:"member-location",label:`Standort von ${person.name}`,subtitle:`Live-Standort · ${freshness}`,appUrl:"/map",navigationUrl:`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${person.latitude},${person.longitude}`)}`}],needsLocation:false};
 }
 
-function asksForNearby(q:string){return/(hier|in der nähe|nähe|umkreis|nächste|beste|empfehl|bar|club|restaurant|essen|apotheke|geldautomat|tankstelle|toilette|krankenhaus|polizei|taxi)/i.test(q)&&!/(unser|unsere|tour|programm|freigeschaltet|hotel.*tour)/i.test(q)}
+function asksForNearby(q:string){
+  const category=/(bar|club|disco|restaurant|essen|pizza|burger|frühstück|apotheke|geldautomat|atm|tankstelle|toilette|klo|krankenhaus|arzt|polizei|taxi)/i;
+  return category.test(q);
+}
 function actionFor(type:string,item:PublicItem):Action{const label=norm(item.title||item.name)||"Öffnen";const address=norm(item.address);const id=norm(item.id);const appUrl=type==="program"?`/program#program-${id}`:type==="hotel"?`/#hotel-${id}`:`/#knowledge-${id}`;return{type,label,subtitle:address||"In der App anzeigen",appUrl}}
 
 function answerFromVisibleTourData(question:string,context:PublicContext):{answer:string;actions:Action[];needsLocation:false}|null{
@@ -132,7 +140,7 @@ function answerFromVisibleTourData(question:string,context:PublicContext):{answe
     const lines=context.hotels.map(h=>`${norm(h.name||h.title)}${norm(h.address)?` – ${norm(h.address)}`:""}${norm(h.description)?`\n${norm(h.description)}`:""}`);
     return{answer:`Hier wird später mehr oder weniger würdevoll genächtigt:\n\n${lines.join("\n\n")}\n\nNachts ist „ungefähr da hinten“ keine belastbare Navigationsstrategie. 😄`,actions:context.hotels.map(h=>actionFor("hotel",h)),needsLocation:false};
   }
-  const asksProgram=/(heute|morgen|programm|programmpunkt|was steht an)/.test(q)||/nächste.{0,24}(programm|programmpunkt|termin|punkt)/.test(q)||/(programm|programmpunkt|termin).{0,24}nächste/.test(q)||/was.{0,14}(kommt|passiert).{0,12}als nächstes/.test(q);
+  const asksProgram=/(heute|morgen|programm|programmpunkt|was steht an)/.test(q)||/was.{0,16}steht.{0,16}(als )?nächst/.test(q)||/nächste.{0,24}(programm|programmpunkt|termin|punkt)/.test(q)||/(programm|programmpunkt|termin).{0,24}nächste/.test(q)||/was.{0,14}(kommt|passiert).{0,12}als nächstes/.test(q);
   if(asksProgram){
     if(!context.program_items.length)return{answer:"Der freigegebene Plan ist aktuell leer. Das Gremium spielt offenbar weiter Geheimdienst. 🕵️",actions:[],needsLocation:false};
     const items=[...context.program_items].sort((a,b)=>new Date(norm(a.starts_at)).getTime()-new Date(norm(b.starts_at)).getTime()).slice(0,6);
