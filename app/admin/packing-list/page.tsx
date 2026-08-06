@@ -21,16 +21,16 @@ export default function PackingAdminPage(){
   const itemsRef=useRef<Item[]>([]);
   const draggingRef=useRef<string|null>(null);
 
-  useEffect(()=>{itemsRef.current=items},[items]);
+  const applyItems=useCallback((next:Item[])=>{itemsRef.current=next;setItems(next)},[]);
 
   const load=useCallback(async()=>{
     const [s,i]=await Promise.all([
       supabase.from("packing_settings").select("is_visible,title,intro").eq("id",1).maybeSingle(),
-      supabase.from("packing_items").select("id,title,description,sort_order").order("sort_order").order("created_at")
+      supabase.from("packing_items").select("id,title,description,sort_order").order("sort_order",{ascending:true}).order("created_at",{ascending:true})
     ]);
     if(s.data)setSettings(s.data);
-    setItems(i.data??[]);
-  },[supabase]);
+    applyItems(i.data??[]);
+  },[supabase,applyItems]);
 
   useEffect(()=>{load()},[load]);
 
@@ -60,7 +60,8 @@ export default function PackingAdminPage(){
     event.preventDefault();
     const form=event.currentTarget;
     const data=new FormData(form);
-    const nextOrder=items.length?Math.max(...items.map(item=>item.sort_order))+1:0;
+    const current=itemsRef.current;
+    const nextOrder=current.length?Math.max(...current.map(item=>item.sort_order))+1:0;
     const {error}=await supabase.from("packing_items").insert({category_id:null,title:String(data.get("title")).trim(),description:String(data.get("description")).trim()||null,is_required:true,sort_order:nextOrder,created_by:session!.user.id});
     setStatus(error?error.message:"Pflichtgegenstand hinzugefügt. Du kannst ihn unten frei verschieben.");
     if(!error){form.reset();await load()}
@@ -81,20 +82,34 @@ export default function PackingAdminPage(){
   }
 
   function moveItem(targetId:string){
-    const draggedId=draggingRef.current;if(!draggedId||draggedId===targetId)return;
-    setItems(current=>{
-      const from=current.findIndex(item=>item.id===draggedId);const to=current.findIndex(item=>item.id===targetId);if(from<0||to<0)return current;
-      const next=[...current];const [moved]=next.splice(from,1);next.splice(to,0,moved);
-      const ordered=next.map((item,index)=>({...item,sort_order:index}));itemsRef.current=ordered;return ordered;
-    });
+    const draggedId=draggingRef.current;
+    if(!draggedId||draggedId===targetId)return;
+    const current=itemsRef.current;
+    const from=current.findIndex(item=>item.id===draggedId);
+    const to=current.findIndex(item=>item.id===targetId);
+    if(from<0||to<0)return;
+    const next=[...current];
+    const [moved]=next.splice(from,1);
+    next.splice(to,0,moved);
+    applyItems(next.map((item,index)=>({...item,sort_order:index})));
   }
 
   async function saveOrder(){
-    const ordered=itemsRef.current;
-    const updates=await Promise.all(ordered.map(item=>supabase.from("packing_items").update({sort_order:item.sort_order,is_required:true,category_id:null}).eq("id",item.id)));
-    const error=updates.find(result=>result.error)?.error;
-    setStatus(error?error.message:"Reihenfolge gespeichert.");
-    if(error)await load();
+    const ordered=itemsRef.current.map((item,index)=>({...item,sort_order:index}));
+    applyItems(ordered);
+
+    // Nacheinander speichern, damit Realtime-Abonnenten nie eine zufällige
+    // Zwischenreihenfolge aus parallelen Updates als Endzustand übernehmen.
+    for(const item of ordered){
+      const {error}=await supabase.from("packing_items").update({sort_order:item.sort_order,is_required:true,category_id:null}).eq("id",item.id);
+      if(error){setStatus(error.message);await load();return}
+    }
+
+    const {data,error}=await supabase.from("packing_items").select("id,title,description,sort_order").order("sort_order",{ascending:true}).order("created_at",{ascending:true});
+    if(error){setStatus(error.message);return}
+    applyItems(data??[]);
+    window.dispatchEvent(new CustomEvent("packing-order-updated"));
+    setStatus("Reihenfolge für alle Teilnehmer gespeichert.");
   }
 
   function startDrag(event:ReactPointerEvent<HTMLButtonElement>,id:string){
