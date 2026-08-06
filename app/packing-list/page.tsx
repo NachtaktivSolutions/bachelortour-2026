@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, GripVertical, Luggage, Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { AuthGate } from "@/components/auth-gate";
 import { Shell } from "@/components/shell";
@@ -22,6 +22,10 @@ export default function PackingListPage(){
   const [status,setStatus]=useState("");
   const [dragging,setDragging]=useState<string|null>(null);
   const [editMode,setEditMode]=useState(false);
+  const personalItemsRef=useRef<PersonalItem[]>([]);
+  const draggingRef=useRef<string|null>(null);
+
+  useEffect(()=>{personalItemsRef.current=personalItems},[personalItems]);
 
   const load=useCallback(async()=>{
     if(!profile)return;
@@ -79,16 +83,38 @@ export default function PackingListPage(){
     setStatus(error?error.message:"Eigener Gegenstand gelöscht.");if(!error)setPersonalItems(current=>current.filter(item=>item.id!==id));
   }
 
-  async function dropPersonal(targetId:string){
-    if(!editMode||!dragging||dragging===targetId)return;
-    const from=personalItems.findIndex(item=>item.id===dragging);const to=personalItems.findIndex(item=>item.id===targetId);if(from<0||to<0)return;
-    const next=[...personalItems];const [moved]=next.splice(from,1);next.splice(to,0,moved);
-    const ordered=next.map((item,index)=>({...item,sort_order:index}));setDragging(null);setPersonalItems(ordered);
-    const updates=await Promise.all(ordered.map(item=>supabase.from("personal_packing_items").update({sort_order:item.sort_order}).eq("id",item.id)));
-    const error=updates.find(result=>result.error)?.error;if(error){setStatus(error.message);await load()}
+  function movePersonal(targetId:string){
+    const draggedId=draggingRef.current;if(!draggedId||draggedId===targetId)return;
+    setPersonalItems(current=>{
+      const from=current.findIndex(item=>item.id===draggedId);const to=current.findIndex(item=>item.id===targetId);if(from<0||to<0)return current;
+      const next=[...current];const [moved]=next.splice(from,1);next.splice(to,0,moved);
+      const ordered=next.map((item,index)=>({...item,sort_order:index}));personalItemsRef.current=ordered;return ordered;
+    });
   }
 
-  function toggleEditMode(){setDragging(null);setEditMode(current=>!current)}
+  async function savePersonalOrder(){
+    const ordered=personalItemsRef.current;
+    const updates=await Promise.all(ordered.map(item=>supabase.from("personal_packing_items").update({sort_order:item.sort_order}).eq("id",item.id)));
+    const error=updates.find(result=>result.error)?.error;setStatus(error?error.message:"Reihenfolge gespeichert.");if(error)await load();
+  }
+
+  function startPersonalDrag(event:ReactPointerEvent<HTMLButtonElement>,id:string){
+    if(!editMode)return;event.preventDefault();draggingRef.current=id;setDragging(id);event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function movePersonalDrag(event:ReactPointerEvent<HTMLButtonElement>){
+    if(!draggingRef.current)return;event.preventDefault();
+    const target=(document.elementFromPoint(event.clientX,event.clientY) as HTMLElement|null)?.closest<HTMLElement>("[data-personal-id]");
+    const targetId=target?.dataset.personalId;if(targetId)movePersonal(targetId);
+  }
+
+  async function endPersonalDrag(event:ReactPointerEvent<HTMLButtonElement>){
+    if(!draggingRef.current)return;event.preventDefault();
+    if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);
+    draggingRef.current=null;setDragging(null);await savePersonalOrder();
+  }
+
+  function toggleEditMode(){draggingRef.current=null;setDragging(null);setEditMode(current=>!current)}
 
   const total=adminItems.length+personalItems.length;
   const done=checked.size+personalItems.filter(item=>item.checked).length;
@@ -107,10 +133,10 @@ export default function PackingListPage(){
         <div className="packing-simple-list unified-packing-list">
           {adminItems.map(item=>{const isDone=checked.has(item.id);return <button type="button" key={item.id} className={`packing-item ${isDone?"done":""}`} onClick={()=>toggleAdmin(item.id)}><span className="packing-check">{isDone&&<Check/>}</span><span><strong>{item.title}<em>Pflicht</em></strong>{item.description&&<small>{item.description}</small>}</span></button>})}
 
-          {personalItems.length>0&&<div className="personal-list-divider"><div><strong>Meine Ergänzungen</strong><p>{editMode?"Ziehe die Einträge in die gewünschte Reihenfolge oder bearbeite sie.":"Deine persönlichen Gegenstände stehen direkt unter den Pflichtsachen."}</p></div><button type="button" className={`personal-edit-mode-button ${editMode?"active":""}`} onClick={toggleEditMode}>{editMode?<><Check/>Fertig</>:<><Pencil/>Bearbeiten</>}</button></div>}
+          {personalItems.length>0&&<div className="personal-list-divider"><div><strong>Meine Ergänzungen</strong><p>{editMode?"Halte den Griff gedrückt und ziehe den Eintrag an die gewünschte Stelle.":"Deine persönlichen Gegenstände stehen direkt unter den Pflichtsachen."}</p></div><button type="button" className={`personal-edit-mode-button ${editMode?"active":""}`} onClick={toggleEditMode}>{editMode?<><Check/>Fertig</>:<><Pencil/>Bearbeiten</>}</button></div>}
 
-          {personalItems.map(item=><article key={item.id} draggable={editMode} onDragStart={()=>editMode&&setDragging(item.id)} onDragEnd={()=>setDragging(null)} onDragOver={event=>{if(editMode)event.preventDefault()}} onDrop={()=>dropPersonal(item.id)} className={`personal-packing-item ${item.checked?"done":""} ${dragging===item.id?"dragging":""} ${editMode?"editing":"viewing"}`}>
-            {editMode&&<button type="button" className="packing-drag-handle" aria-label="Verschieben"><GripVertical/></button>}
+          {personalItems.map(item=><article key={item.id} data-personal-id={item.id} className={`personal-packing-item ${item.checked?"done":""} ${dragging===item.id?"dragging":""} ${editMode?"editing":"viewing"}`}>
+            {editMode&&<button type="button" className="packing-drag-handle" aria-label="Verschieben" onPointerDown={event=>startPersonalDrag(event,item.id)} onPointerMove={movePersonalDrag} onPointerUp={endPersonalDrag} onPointerCancel={endPersonalDrag}><GripVertical/></button>}
             <button type="button" className="personal-packing-toggle" onClick={()=>togglePersonal(item)}><span className="packing-check">{item.checked&&<Check/>}</span><span><strong>{item.title}</strong>{item.description&&<small>{item.description}</small>}</span></button>
             {editMode&&<div className="personal-packing-actions"><button type="button" className="icon-button" onClick={()=>editPersonal(item)} aria-label="Bearbeiten"><Pencil/></button><button type="button" className="icon-button danger-icon" onClick={()=>removePersonal(item.id)} aria-label="Löschen"><Trash2/></button></div>}
           </article>)}
