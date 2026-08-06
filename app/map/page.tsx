@@ -18,9 +18,11 @@ export default function MapPage() {
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState("");
   const [fitRequest,setFitRequest]=useState(0);
+  const [mapInstanceKey,setMapInstanceKey]=useState(0);
   const supabase=useMemo(()=>createClient(),[]);
   const loadingRef=useRef(false);
   const lastLoadRef=useRef(0);
+  const leftAppRef=useRef(false);
 
   const load = useCallback(async (force=false) => {
     if (document.visibilityState !== "visible" || loadingRef.current) return;
@@ -56,12 +58,38 @@ export default function MapPage() {
     return()=>{window.clearInterval(timer);document.removeEventListener("visibilitychange",onVisible);window.removeEventListener("focus",onVisible);supabase.removeChannel(channel)};
   },[load,supabase]);
 
+  useEffect(()=>{
+    const restoreInteraction=()=>{
+      if(document.visibilityState!=="visible")return;
+      if(!leftAppRef.current)return;
+      leftAppRef.current=false;
+      const active=document.activeElement as HTMLElement|null;
+      active?.blur();
+      document.body.style.pointerEvents="";
+      document.documentElement.style.pointerEvents="";
+      window.setTimeout(()=>setMapInstanceKey(value=>value+1),80);
+    };
+    const onVisibility=()=>{
+      if(document.visibilityState==="hidden")leftAppRef.current=true;
+      else restoreInteraction();
+    };
+    const onPageShow=()=>{if(leftAppRef.current)restoreInteraction()};
+    document.addEventListener("visibilitychange",onVisibility);
+    window.addEventListener("pageshow",onPageShow);
+    window.addEventListener("focus",restoreInteraction);
+    return()=>{
+      document.removeEventListener("visibilitychange",onVisibility);
+      window.removeEventListener("pageshow",onPageShow);
+      window.removeEventListener("focus",restoreInteraction);
+    };
+  },[]);
+
   async function refreshAndFit(){await load(true);setFitRequest(v=>v+1)}
 
   return <AuthGate><Shell>
     <div className="page-heading map-page-heading"><span className="eyebrow">WO SIND DIE JUNGS?</span><h1>Live-Karte</h1><p>Die Positionen aktualisieren sich automatisch. Zoom und Kartenausschnitt bleiben erhalten.</p></div>
     <div className="map-toolbar"><LocationSharing/><button className="secondary-button map-refresh" onClick={refreshAndFit}><RefreshCw/>Alle anzeigen</button></div>
     {error&&<div className="error">{error}</div>}
-    <div className="map-stage">{loading?<div className="empty-card">Karte wird geladen …</div>:<MapView pins={pins} programItems={programItems} members={members} fitRequest={fitRequest}/>}</div>
+    <div className="map-stage">{loading?<div className="empty-card">Karte wird geladen …</div>:<MapView key={mapInstanceKey} pins={pins} programItems={programItems} members={members} fitRequest={fitRequest}/>}</div>
   </Shell></AuthGate>;
 }
