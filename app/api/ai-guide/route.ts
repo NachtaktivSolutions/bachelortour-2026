@@ -36,7 +36,6 @@ const MAX_QUESTION_LENGTH = 700;
 export async function GET(req: NextRequest) {
   const auth = await authorize(req);
   if ("response" in auth) return auth.response;
-
   const count = await usageCount(auth.supabase, auth.userId);
   return NextResponse.json({
     configured: Boolean(process.env.OPENAI_API_KEY),
@@ -78,7 +77,10 @@ export async function POST(req: NextRequest) {
 
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json(
-      { error: "Der KI-Motor ist gerade nicht angeschlossen. Das Gremium muss wohl kurz unter die Haube schauen. 🔧", code: "OPENAI_NOT_CONFIGURED" },
+      {
+        error: "Der KI-Motor ist gerade nicht angeschlossen. Das Gremium muss wohl kurz unter die Haube schauen. 🔧",
+        code: "OPENAI_NOT_CONFIGURED",
+      },
       { status: 503 },
     );
   }
@@ -99,20 +101,25 @@ export async function POST(req: NextRequest) {
   }) as PublicContext;
   const location = validLocation(body.location) ? body.location! : null;
 
-  const deterministic = answerFromVisibleTourData(question, context);
-  if (deterministic) {
-    await logUsage(auth.supabase, auth.userId, question.length);
-    return NextResponse.json({
-      ...deterministic,
-      answer: sanitizeGuideText(deterministic.answer),
-      remaining: Math.max(0, MAX_QUESTIONS_PER_HOUR - count - 1),
-    });
+  // Lokale Suchen müssen vor festen Tourantworten erkannt werden.
+  // Sonst würde etwa „nächste Apotheke“ wegen „nächste“ als Programmfrage enden.
+  const nearby = asksForNearby(question);
+
+  if (!nearby) {
+    const deterministic = answerFromVisibleTourData(question, context);
+    if (deterministic) {
+      await logUsage(auth.supabase, auth.userId, question.length);
+      return NextResponse.json({
+        ...deterministic,
+        answer: sanitizeGuideText(deterministic.answer),
+        remaining: Math.max(0, MAX_QUESTIONS_PER_HOUR - count - 1),
+      });
+    }
   }
 
-  const nearby = asksForNearby(question);
   if (nearby && !location) {
     return NextResponse.json({
-      answer: "Dafür brauch ich kurz deinen Standort – sonst such ich dir am Ende eine Bar in Buxtehude raus. 😄 Tippe auf „Standort verwenden“ oder nenn mir einen Ort.",
+      answer: "Dafür brauch ich kurz deinen Standort – sonst such ich dir am Ende eine Apotheke in Buxtehude raus. 😄 Tippe auf „Standort verwenden“ oder nenn mir einen Ort.",
       actions: [],
       needsLocation: true,
       remaining: Math.max(0, MAX_QUESTIONS_PER_HOUR - count),
@@ -152,6 +159,7 @@ FAKTENTREUE:
 - Sage offen und locker, wenn eine Information nicht in den freigegebenen Daten enthalten ist.
 - Nutze bei Tourfragen zuerst die gelieferten sichtbaren Daten.
 - Wenn ein sichtbares Hotel, ein Programmpunkt oder Wissenswertes vorhanden ist, nenne nur die tatsächlich gelieferten Angaben.
+- Bei lokalen Suchen verwende ausschließlich ORTE_IN_DER_NAEHE. Nenne bevorzugt die passendsten Ergebnisse mit Adresse, Bewertung und Öffnungsstatus, soweit geliefert.
 - Keine Markdown-Links; Aktionsschaltflächen erstellt die App.
 
 ABSOLUTER GEHEIMNISSCHUTZ:
@@ -324,7 +332,13 @@ function answerFromVisibleTourData(
     };
   }
 
-  if (/(nächste|heute|morgen|programm|programmpunkt|was steht an)/.test(normalizedQuestion)) {
+  const asksForProgram =
+    /(heute|morgen|programm|programmpunkt|was steht an)/.test(normalizedQuestion) ||
+    /nächste.{0,24}(programm|programmpunkt|termin|punkt)/.test(normalizedQuestion) ||
+    /(programm|programmpunkt|termin).{0,24}nächste/.test(normalizedQuestion) ||
+    /was.{0,14}(kommt|passiert).{0,12}als nächstes/.test(normalizedQuestion);
+
+  if (asksForProgram) {
     if (!context.program_items.length) {
       const emptyIntro = /morgen/.test(normalizedQuestion)
         ? "Morgen? Laut freigegebenem Plan bisher gepflegtes Nichts."
