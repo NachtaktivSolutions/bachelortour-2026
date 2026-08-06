@@ -49,7 +49,7 @@ export function AppTour(){
   const setupKey=`firestarter-device-setup-v2:${session.user.id}`;
   const setupComplete=(!mobile||isStandalone())&&localStorage.getItem(setupKey)==="done";
   if(!forced&&(!setupComplete||localStorage.getItem(STORAGE_KEY)==="done"))return;
-  openTimer.current=window.setTimeout(()=>setOpen(true),700);
+  openTimer.current=window.setTimeout(()=>setOpen(true),forced?150:700);
   return()=>{if(openTimer.current)window.clearTimeout(openTimer.current)};
  },[mounted,loading,session,profile,pathname,open]);
 
@@ -60,9 +60,20 @@ export function AppTour(){
    const setupKey=`firestarter-device-setup-v2:${session.user.id}`;
    if((!mobile||isStandalone())&&localStorage.getItem(setupKey)==="done"&&localStorage.getItem(STORAGE_KEY)!=="done")setOpen(true);
   };
+  const restart=()=>{
+   if(openTimer.current)window.clearTimeout(openTimer.current);
+   if(finaleTimer.current)window.clearTimeout(finaleTimer.current);
+   localStorage.removeItem(STORAGE_KEY);
+   setStep(0);setFinale(false);setTransitioning(false);setOpen(true);
+   if(pathname!=="/")router.replace("/");
+  };
   window.addEventListener("firestarter-device-setup-complete",retry);
-  return()=>window.removeEventListener("firestarter-device-setup-complete",retry);
- },[mounted,loading,session,profile,open]);
+  window.addEventListener("firestarter-app-tour-start",restart);
+  return()=>{
+   window.removeEventListener("firestarter-device-setup-complete",retry);
+   window.removeEventListener("firestarter-app-tour-start",restart);
+  };
+ },[mounted,loading,session,profile,open,pathname,router]);
 
  useEffect(()=>{
   if(!open)return;
