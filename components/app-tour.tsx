@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Flame, X } from "lucide-react";
 import { useApp } from "./app-provider";
 
-const STORAGE_KEY="firestarter-app-tour-v5";
+const STORAGE_KEY="firestarter-app-tour-v6";
 
 type Placement="top"|"bottom"|"center";
 type Step={title:string;text:string;path:string;target?:string;emoji:string;placement:Placement};
@@ -19,7 +19,7 @@ const steps:Step[]=[
  {title:"Fotogalerie",text:"Hier sammelt ihr alle Bilder und Erinnerungen der Tour.",path:"/gallery",target:'.bottom-nav a[href="/gallery"]',emoji:"📸",placement:"top"},
  {title:"Die Bachelor",text:"Hier findest du alle Teilnehmer und ihre aktuellen Tourstatus.",path:"/members",target:'.bottom-nav a[href="/members"]',emoji:"👥",placement:"top"},
  {title:"Dein Profil",text:"Über dein Profil änderst du Daten und Status oder sendest Hilfe.",path:"/profile",target:".topbar .avatar",emoji:"😄",placement:"bottom"},
- {title:"Push & Geräteprüfung",text:"Unter Push-Nachrichten kannst du Benachrichtigungen und dein Gerät prüfen.",path:"/profile",target:".profile-setting-card h3",emoji:"🔔",placement:"top"}
+ {title:"Push & Geräteprüfung",text:"Hier aktivierst du Benachrichtigungen und prüfst, ob dein Gerät vollständig eingerichtet ist.",path:"/profile",target:".profile-setting-card",emoji:"🔔",placement:"bottom"}
 ];
 
 function isStandalone(){
@@ -86,9 +86,13 @@ export function AppTour(){
   if(!ready||!current.target){setRect(null);return}
   const element=current.target.split(",").map(s=>document.querySelector(s.trim())).find(Boolean) as HTMLElement|null;
   if(!element){setRect(null);return}
-  element.scrollIntoView({behavior:"auto",block:"center",inline:"center"});
-  targetTimer.current=window.setTimeout(()=>setRect(element.getBoundingClientRect()),90);
- },[current.target,ready]);
+  const isBottomNav=current.target.includes(".bottom-nav");
+  const isHeader=current.target.includes(".topbar");
+  if(!isBottomNav&&!isHeader){
+   element.scrollIntoView({behavior:"auto",block:current.placement==="bottom"?"start":"end",inline:"nearest"});
+  }
+  targetTimer.current=window.setTimeout(()=>setRect(element.getBoundingClientRect()),140);
+ },[current.target,current.placement,ready]);
 
  useEffect(()=>{
   if(!open||finale)return;
@@ -119,7 +123,7 @@ export function AppTour(){
   left:Math.max(8,rect.left-8),
   top:Math.max(8,rect.top-8),
   width:Math.min(window.innerWidth-16,rect.width+16),
-  height:Math.min(92,rect.height+16)
+  height:Math.min(current.target?.includes("profile-setting-card")?116:92,rect.height+16)
  }:undefined;
 
  return createPortal(<div className={`app-tour ${finale?"finale":""}`} role="dialog" aria-modal="true" aria-label="App-Einführung">
