@@ -1,4 +1,4 @@
-const CACHE_NAME="firestarter-v26";
+const CACHE_NAME="firestarter-v27";
 const OFFLINE_ROUTES=["/","/program","/packing-list","/tour-tools","/members"];
 
 self.addEventListener("install",event=>{
@@ -25,7 +25,9 @@ self.addEventListener("fetch",event=>{
   }
 
   if(url.pathname.startsWith("/_next/static/")||url.pathname.startsWith("/api/branding/")||/\.(css|js|png|jpg|jpeg|webp|svg|woff2?)$/i.test(url.pathname)){
-    event.respondWith(caches.match(request).then(cached=>cached||fetch(request).then(response=>{const copy=response.clone();caches.open(CACHE_NAME).then(cache=>cache.put(request,copy));return response;})));
+    event.respondWith(fetch(request).then(response=>{
+      const copy=response.clone();caches.open(CACHE_NAME).then(cache=>cache.put(request,copy));return response;
+    }).catch(()=>caches.match(request)));
   }
 });
 
@@ -36,8 +38,8 @@ self.addEventListener("push",event=>{
   const tag=data.tag||`firestarter-${timestamp}-${Math.random().toString(36).slice(2,8)}`;
   event.waitUntil(self.registration.showNotification(data.title||"Firestarter 2026",{
     body:data.body||"Es gibt Neuigkeiten.",
-    icon:"/api/branding/icon?v=48",
-    badge:"/api/branding/icon?v=48",
+    icon:"/api/branding/icon?v=49",
+    badge:"/api/branding/icon?v=49",
     image:data.image||undefined,
     tag,
     renotify:true,
