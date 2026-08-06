@@ -9,36 +9,37 @@ type InstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 };
 
-const INSTALL_PROMPT_SNOOZE_MS=12*60*60*1000;
+const SNOOZE_KEY="firestarter-pwa-install-snooze-until";
 
 export function PwaInstallPrompt() {
   const { profile } = useApp();
   const [visible,setVisible]=useState(false);
   const [installEvent,setInstallEvent]=useState<InstallPromptEvent|null>(null);
   const [isIos,setIsIos]=useState(false);
-  const dismissKey=profile?.id?`firestarter-pwa-install-dismissed:${profile.id}`:"";
 
   useEffect(()=>{
-    if(!profile||!dismissKey)return;
+    if(!profile)return;
+    const forcedTour=new URLSearchParams(window.location.search).get("tour")==="1";
+    if(forcedTour)return;
     const standalone=window.matchMedia("(display-mode: standalone)").matches || (window.navigator as Navigator & {standalone?:boolean}).standalone===true;
     if(standalone)return;
+    const snoozeUntil=Number(localStorage.getItem(SNOOZE_KEY)||0);
+    if(snoozeUntil>Date.now())return;
 
-    const dismissedAt=Number(localStorage.getItem(dismissKey)||0);
-    const snoozed=Number.isFinite(dismissedAt)&&Date.now()-dismissedAt<INSTALL_PROMPT_SNOOZE_MS;
     const ua=window.navigator.userAgent;
     setIsIos(/iPad|iPhone|iPod/.test(ua) || (navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1));
 
     const beforeInstall=(event:Event)=>{
       event.preventDefault();
       setInstallEvent(event as InstallPromptEvent);
-      if(!snoozed)setVisible(true);
+      setVisible(true);
     };
-    const installed=()=>{localStorage.removeItem(dismissKey);setVisible(false);window.setTimeout(()=>window.location.reload(),500)};
+    const installed=()=>{setVisible(false);localStorage.removeItem(SNOOZE_KEY);window.setTimeout(()=>window.location.reload(),500)};
     window.addEventListener("beforeinstallprompt",beforeInstall);
     window.addEventListener("appinstalled",installed);
-    const timer=!snoozed?window.setTimeout(()=>setVisible(true),700):undefined;
-    return()=>{if(timer)window.clearTimeout(timer);window.removeEventListener("beforeinstallprompt",beforeInstall);window.removeEventListener("appinstalled",installed)};
-  },[profile,dismissKey]);
+    const timer=window.setTimeout(()=>setVisible(true),700);
+    return()=>{window.clearTimeout(timer);window.removeEventListener("beforeinstallprompt",beforeInstall);window.removeEventListener("appinstalled",installed)};
+  },[profile]);
 
   async function install(){
     if(!installEvent)return;
@@ -48,7 +49,7 @@ export function PwaInstallPrompt() {
   }
 
   function postpone(){
-    if(dismissKey)localStorage.setItem(dismissKey,String(Date.now()));
+    localStorage.setItem(SNOOZE_KEY,String(Date.now()+12*60*60*1000));
     setVisible(false);
   }
 
@@ -56,7 +57,7 @@ export function PwaInstallPrompt() {
 
   return <div className="pwa-install-backdrop" role="dialog" aria-modal="true" aria-label="Firestarter 2026 installieren">
     <section className="pwa-install-card simple-onboarding-card">
-      <button type="button" className="push-consent-close" onClick={postpone} aria-label="Installation später durchführen"><X/></button>
+      <button type="button" className="push-consent-close" onClick={postpone} aria-label="Später installieren"><X/></button>
       <img src="/api/branding/icon" alt="Firestarter 2026" className="pwa-install-logo"/>
       <span className="eyebrow">SCHRITT 1 VON 3</span>
       <h2>App installieren</h2>
