@@ -19,12 +19,12 @@ async function getContext(req:NextRequest){
   return{admin,user,profile} as const;
 }
 
-async function isNewBachelor(admin:ReturnType<typeof createClient>,userId:string){
+async function isNewBachelor(admin:any,userId:string){
   const {data}=await admin.from("member_stamps").select("label").eq("user_id",userId).ilike("label","%Neu-Bachelor%").maybeSingle();
   return Boolean(data);
 }
 
-async function sendPush(admin:ReturnType<typeof createClient>,userIds:string[],payload:{title:string;body:string;url:string;tag:string}){
+async function sendPush(admin:any,userIds:string[],payload:{title:string;body:string;url:string;tag:string}){
   if(!userIds.length)return 0;
   const vapidPublic=process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   const vapidPrivate=process.env.VAPID_PRIVATE_KEY;
@@ -33,7 +33,7 @@ async function sendPush(admin:ReturnType<typeof createClient>,userIds:string[],p
   webpush.setVapidDetails(vapidSubject,vapidPublic,vapidPrivate);
   const {data:subscriptions}=await admin.from("push_subscriptions").select("id,user_id,subscription").in("user_id",userIds);
   let sent=0;
-  await Promise.all((subscriptions??[]).map(async row=>{
+  await Promise.all((subscriptions??[]).map(async(row:any)=>{
     try{
       await webpush.sendNotification(row.subscription,JSON.stringify({...payload,timestamp:Date.now()}),{TTL:3600,urgency:"high"});
       sent++;
@@ -73,7 +73,7 @@ export async function POST(req:NextRequest){
       const {data:order,error}=await ctx.admin.from("bachelorando_orders").insert({requester_id:ctx.user.id,item,quantity,seat,note:note||null}).select("id").single();
       if(error)throw error;
       const {data:stamps}=await ctx.admin.from("member_stamps").select("user_id").ilike("label","%Neu-Bachelor%");
-      const targetIds=[...new Set((stamps??[]).map(row=>row.user_id).filter(Boolean))];
+      const targetIds=[...new Set((stamps??[]).map((row:any)=>String(row.user_id)).filter(Boolean))];
       const detail=`${quantity}× ${item} · ${seat}${note?` · ${note}`:""}`;
       const sent=await sendPush(ctx.admin,targetIds,{title:"🍺 Neue Bachelorando-Bestellung",body:`${ctx.profile.name} möchte ${detail}`,url:"/bachelorando",tag:`bachelorando-${order.id}`});
       return NextResponse.json({ok:true,orderId:order.id,sent});
