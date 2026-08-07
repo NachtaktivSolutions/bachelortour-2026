@@ -81,11 +81,17 @@ export function BachelorPassCard(){
     const path=`${profile.id}/bachelorpass-${activeSide}.jpg`;
     const upload=await supabase.storage.from("bachelorpasses").upload(path,scan.file,{upsert:true,contentType:"image/jpeg",cacheControl:"60"});
     if(upload.error){setStatus(upload.error.message);setBusy(false);return}
-    const payload=activeSide==="front"
-      ?{user_id:profile.id,front_image_path:path,image_path:path,updated_at:new Date().toISOString()}
-      :{user_id:profile.id,back_image_path:path,updated_at:new Date().toISOString()};
-    const {error}=await supabase.from("bachelor_passes").upsert(payload,{onConflict:"user_id"});
-    if(error){setStatus(error.message);setBusy(false);return}
+
+    let dbError:null|{message:string}=null;
+    if(activeSide==="front"){
+      const {error}=await supabase.from("bachelor_passes").upsert({user_id:profile.id,front_image_path:path,image_path:path,updated_at:new Date().toISOString()},{onConflict:"user_id"});
+      dbError=error;
+    }else{
+      const {error}=await supabase.from("bachelor_passes").upsert({user_id:profile.id,back_image_path:path,updated_at:new Date().toISOString()},{onConflict:"user_id"});
+      dbError=error;
+    }
+    if(dbError){setStatus(dbError.message);setBusy(false);return}
+
     const signed=await supabase.storage.from("bachelorpasses").createSignedUrl(path,60*60);
     const url=signed.data?.signedUrl?`${signed.data.signedUrl}&v=${Date.now()}`:scan.preview;
     if(activeSide==="front"){setFrontPath(path);setFrontUrl(url)}else{setBackPath(path);setBackUrl(url)}
