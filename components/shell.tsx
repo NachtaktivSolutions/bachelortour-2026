@@ -38,6 +38,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [packingVisible,setPackingVisible]=useState(false);
   const [adminMenuOpen,setAdminMenuOpen]=useState(false);
   const [easterOpen,setEasterOpen]=useState(false);
+  const [easterAudio,setEasterAudio]=useState<HTMLAudioElement|null>(null);
   const easterTaps=useRef<number[]>([]);
   const adminMenuRef=useRef<HTMLDivElement>(null);
   const supabase = useMemo(()=>createClient(),[]);
@@ -75,10 +76,21 @@ export function Shell({ children }: { children: React.ReactNode }) {
   },[adminMenuOpen]);
 
   const logout = async () => { setAdminPreview(false);await supabase.auth.signOut(); router.replace("/login"); };
+  const closeEaster=()=>{setEasterOpen(false);setEasterAudio(null)};
   const triggerEaster=(event:React.MouseEvent<HTMLAnchorElement>)=>{
     const now=Date.now();
     easterTaps.current=[...easterTaps.current.filter(time=>now-time<1900),now];
-    if(easterTaps.current.length>=5){event.preventDefault();easterTaps.current=[];setEasterOpen(true)}
+    if(easterTaps.current.length>=5){
+      event.preventDefault();
+      easterTaps.current=[];
+      const audio=new Audio("/easter-egg.mp3");
+      audio.preload="auto";
+      audio.volume=.95;
+      audio.currentTime=0;
+      setEasterAudio(audio);
+      void audio.play().catch(()=>{});
+      setEasterOpen(true);
+    }
   };
   const enterParticipantView=()=>{setAdminMenuOpen(false);setAdminPreview(true);if(pathname.startsWith("/admin"))router.push("/")};
   const leaveParticipantView=()=>setAdminPreview(false);
@@ -102,6 +114,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
     <main className="page-content">{children}</main>
     <nav className="bottom-nav" style={{gridTemplateColumns:`repeat(${navItems.length},1fr)`}}>{navItems.map(({href,label,icon:Icon})=>{const active=href==="/"?pathname==="/":pathname.startsWith(href);const isChat=href==="/chat";return <Link key={href} href={href} className={active?"active":""}><span className="nav-icon-wrap"><Icon size={22}/>{isChat&&unreadChat>0&&<span className="chat-unread-badge">{unreadChat>99?"99+":unreadChat}</span>}</span><span>{label}</span></Link>})}</nav>
     <PwaInstallPrompt/>
-    <EasterEgg open={easterOpen} onClose={()=>setEasterOpen(false)}/>
+    <EasterEgg open={easterOpen} audio={easterAudio} onClose={closeEaster}/>
   </div>;
 }
