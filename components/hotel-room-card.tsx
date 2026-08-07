@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { BedDouble, KeyRound, Pencil, Save, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useApp } from "@/components/app-provider";
@@ -28,6 +29,13 @@ export function HotelRoomCard(){
     return()=>{active=false};
   },[profile?.id,supabase]);
 
+  useEffect(()=>{
+    if(!open)return;
+    const old=document.body.style.overflow;
+    document.body.style.overflow="hidden";
+    return()=>{document.body.style.overflow=old};
+  },[open]);
+
   async function save(e:FormEvent<HTMLFormElement>){
     e.preventDefault();
     if(!profile?.id)return;
@@ -46,19 +54,8 @@ export function HotelRoomCard(){
 
   if(!profile?.id)return null;
 
-  return <>
-    <section className="hotel-room-section">
-      <button className="hotel-room-launch" onClick={()=>{setStatus("");setOpen(true)}}>
-        <span className="hotel-room-icon"><BedDouble/></span>
-        <span className="hotel-room-copy">
-          <strong>{room?`Zimmer ${room.room_number}`:"Mein Zimmer speichern"}</strong>
-          <small>{room?"Zimmernummer & PIN anzeigen oder ändern":"Zimmernummer und Zimmer-PIN nur für dich hinterlegen"}</small>
-        </span>
-        <span className="hotel-room-edit">{room?<Pencil/>:<KeyRound/>}</span>
-      </button>
-    </section>
-
-    {open&&<div className="hotel-room-overlay" role="dialog" aria-modal="true" aria-label="Mein Hotelzimmer">
+  const overlay=open&&typeof document!=="undefined"?createPortal(
+    <div className="hotel-room-overlay" role="dialog" aria-modal="true" aria-label="Mein Hotelzimmer">
       <button className="hotel-room-backdrop" aria-label="Schließen" onClick={()=>!busy&&setOpen(false)}/>
       <form className="hotel-room-modal" onSubmit={save}>
         <button type="button" className="hotel-room-close" aria-label="Schließen" disabled={busy} onClick={()=>setOpen(false)}><X/></button>
@@ -70,6 +67,19 @@ export function HotelRoomCard(){
         {status&&<div className="hotel-room-status">{status}</div>}
         <button className="hotel-room-save" disabled={busy}><Save/>{busy?"Wird gespeichert …":"Zimmerdaten speichern"}</button>
       </form>
-    </div>}
+    </div>,document.body):null;
+
+  return <>
+    <section className="hotel-room-section">
+      <button className="hotel-room-launch" onClick={()=>{setStatus("");setOpen(true)}}>
+        <span className="hotel-room-icon"><BedDouble/></span>
+        <span className="hotel-room-copy">
+          <strong>{room?`Zimmer ${room.room_number}`:"Mein Zimmer speichern"}</strong>
+          <small>{room?"Zimmernummer & PIN anzeigen oder ändern":"Zimmernummer und Zimmer-PIN nur für dich hinterlegen"}</small>
+        </span>
+        <span className="hotel-room-edit">{room?<Pencil/>:<KeyRound/>}</span>
+      </button>
+    </section>
+    {overlay}
   </>;
 }
