@@ -16,6 +16,20 @@ async function getContext(req: NextRequest) {
   return { admin, user, profile } as const;
 }
 
+async function getEnabled(admin:any){
+  const {data}=await admin.from("app_settings").select("tour_burn_enabled").eq("id",1).maybeSingle();
+  return Boolean(data?.tour_burn_enabled);
+}
+
+export async function GET(req:NextRequest){
+  try{
+    const ctx=await getContext(req);if("error" in ctx)return NextResponse.json({error:ctx.error},{status:ctx.status});
+    const enabled=await getEnabled(ctx.admin);
+    const burned=!ctx.profile.is_admin&&Boolean(ctx.user.app_metadata?.tour_burned);
+    return NextResponse.json({enabled,burned,isAdmin:Boolean(ctx.profile.is_admin),burnedAt:ctx.user.app_metadata?.tour_burned_at||null});
+  }catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Status konnte nicht geladen werden."},{status:500})}
+}
+
 export async function POST(req: NextRequest) {
   try {
     const ctx = await getContext(req);
@@ -26,27 +40,41 @@ export async function POST(req: NextRequest) {
     if (action === "toggle") {
       if (!ctx.profile.is_admin) return NextResponse.json({ error: "Nur Admins dürfen die Tour-Verbrennung freischalten." }, { status: 403 });
       const enabled = Boolean(body.enabled);
-      const { error } = await ctx.admin.from("app_settings").update({ tour_burn_enabled: enabled, updated_at: new Date().toISOString(), updated_by: ctx.user.id }).eq("id", 1);
+      const { error } = await ctx.admin.from("app_settings").update({ tour_burn_enabled: enabled, tour_burned:false, tour_burned_at:null, tour_burned_by:null, updated_at: new Date().toISOString(), updated_by: ctx.user.id }).eq("id", 1);
       if (error) throw error;
       return NextResponse.json({ ok: true, enabled });
     }
 
     if (action === "burn") {
-      const now = new Date().toISOString();
-      const { data, error } = await ctx.admin.from("app_settings")
-        .update({ tour_burned: true, tour_burned_at: now, tour_burned_by: ctx.user.id, updated_at: now, updated_by: ctx.user.id })
-        .eq("id", 1).eq("tour_burn_enabled", true).eq("tour_burned", false)
-        .select("tour_burned").maybeSingle();
-      if (error) throw error;
-      if (!data) return NextResponse.json({ error: "Die Tour kann aktuell nicht verbrannt werden oder wurde bereits verbrannt." }, { status: 409 });
-      return NextResponse.json({ ok: true, burned: true });
+      if(ctx.profile.is_admin)return NextResponse.json({error:"Admin-Zugänge können nicht verbrannt werden."},{status:403});
+      const enabled=await getEnabled(ctx.admin);
+      if(!enabled)return NextResponse.json({error:"Die Tour-Verbrennung ist aktuell nicht freigeschaltet."},{status:409});
+      if(ctx.user.app_metadata?.tour_burned)return NextResponse.json({ok:true,burned:true,alreadyBurned:true});
+      const now=new Date().toISOString();
+      const appMetadata={...(ctx.user.app_metadata||{}),tour_burned:true,tour_burned_at:now};
+      const {error}=await ctx.admin.auth.admin.updateUserById(ctx.user.id,{app_metadata:appMetadata});
+      if(error)throw error;
+      return NextResponse.json({ ok:true,burned:true,burnedAt:now });
     }
 
     if (action === "reset") {
-      if (!ctx.profile.is_admin) return NextResponse.json({ error: "Nur Admins dürfen die Tour wiederherstellen." }, { status: 403 });
-      const { error } = await ctx.admin.from("app_settings").update({ tour_burned: false, tour_burned_at: null, tour_burned_by: null, updated_at: new Date().toISOString(), updated_by: ctx.user.id }).eq("id", 1);
+      if (!ctx.profile.is_admin) return NextResponse.json({ error: "Nur Admins dürfen die Verbrennungen global zurücksetzen." }, { status: 403 });
+      let page=1;let cleared=0;
+      while(true){
+        const {data,error}=await ctx.admin.auth.admin.listUsers({page,perPage:1000});if(error)throw error;
+        const users=data.users||[];
+        for(const user of users){
+          if(!user.app_metadata?.tour_burned)continue;
+          const meta={...(user.app_metadata||{}),tour_burned:false,tour_burned_at:null};
+          const {error:updateError}=await ctx.admin.auth.admin.updateUserById(user.id,{app_metadata:meta});if(updateError)throw updateError;
+          cleared++;
+        }
+        if(users.length<1000)break;page++;
+      }
+      const now=new Date().toISOString();
+      const { error } = await ctx.admin.from("app_settings").update({ tour_burned:false,tour_burned_at:null,tour_burned_by:null,updated_at:now,updated_by:ctx.user.id }).eq("id", 1);
       if (error) throw error;
-      return NextResponse.json({ ok: true, burned: false });
+      return NextResponse.json({ ok:true,cleared });
     }
 
     return NextResponse.json({ error: "Unbekannte Aktion." }, { status: 400 });
