@@ -66,21 +66,22 @@
   top: 50%;
   width: 74px;
   height: 46px;
-  color: var(--accent);
+  color: #b9ff54;
   transform: translate(-50%, -50%);
   animation: shuttle 9s ease-in-out infinite;
-  filter: drop-shadow(0 0 7px rgba(255,106,0,.65));
+  filter: drop-shadow(0 0 5px rgba(137,255,54,.95)) drop-shadow(0 0 13px rgba(85,255,45,.5));
 }
 
 .busSvg {
   width: 100%;
   height: 100%;
   overflow: visible;
-  fill: rgba(255,106,0,.08);
+  fill: #68d92f;
   stroke: currentColor;
   stroke-width: 3;
   stroke-linecap: round;
   stroke-linejoin: round;
+  paint-order: stroke fill;
 }
 
 @keyframes shuttle {
