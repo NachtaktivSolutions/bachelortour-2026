@@ -1,21 +1,23 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { BellRing, Building2, Eye, EyeOff, Info, Navigation, Pencil, Plus, Trash2, X } from "lucide-react";
 import { AuthGate } from "@/components/auth-gate";
 import { Shell } from "@/components/shell";
 import { createClient } from "@/lib/supabase/client";
 import { useApp } from "@/components/app-provider";
+import "./places-admin.css";
 
 type Hotel = { id:string; name:string; address:string; description:string|null; latitude:number|null; longitude:number|null; is_visible:boolean; sort_order:number };
 type Knowledge = { id:string; category:string; title:string; description:string|null; address:string|null; phone:string|null; url:string|null; latitude:number|null; longitude:number|null; is_visible:boolean; sort_order:number };
 
 export default function PlacesAdminPage(){
   const { session } = useApp();
-  const supabase = createClient();
+  const supabase = useMemo(()=>createClient(),[]);
   const [hotels,setHotels]=useState<Hotel[]>([]);
   const [knowledge,setKnowledge]=useState<Knowledge[]>([]);
   const [editingHotel,setEditingHotel]=useState<Hotel|null>(null);
+  const [editingKnowledge,setEditingKnowledge]=useState<Knowledge|null>(null);
   const [status,setStatus]=useState("");
   const [busy,setBusy]=useState(false);
 
@@ -35,8 +37,7 @@ export default function PlacesAdminPage(){
   }
 
   async function geocode(address:string){
-    const response=await fetch(`/api/geocode?address=${encodeURIComponent(address)}`);
-    const json=await response.json();
+    const response=await fetch(`/api/geocode?address=${encodeURIComponent(address)}`);const json=await response.json();
     if(!response.ok)throw new Error(json.error||"Adresse nicht gefunden.");
     return json as {latitude:number;longitude:number;display_name:string};
   }
@@ -46,62 +47,58 @@ export default function PlacesAdminPage(){
     try{
       const address=String(f.get("address")).trim();const coords=await geocode(address);const visible=f.get("is_visible")==="on";
       const {data,error}=await supabase.from("hotels").insert({name:String(f.get("name")).trim(),address,description:String(f.get("description")).trim()||null,latitude:coords.latitude,longitude:coords.longitude,is_visible:visible,created_by:session!.user.id}).select().single();
-      if(error)throw error;
-      let message="Hotel gespeichert.";
+      if(error)throw error;let message="Hotel gespeichert.";
       if(visible&&f.get("send_push")==="on"){const sent=await sendTargetPush(`Neues Hotel: ${data.name}`,data.description||data.address,`/#hotel-${data.id}`,`hotel-${data.id}`);message+=` Push an ${sent} Geräte versendet.`}
       form.reset();setStatus(message);await load();
-    }catch(error){setStatus(error instanceof Error?error.message:"Fehler beim Speichern.")}
-    finally{setBusy(false)}
+    }catch(error){setStatus(error instanceof Error?error.message:"Fehler beim Speichern.")}finally{setBusy(false)}
   }
 
   async function saveHotel(e:FormEvent<HTMLFormElement>){
     e.preventDefault();if(!editingHotel)return;const f=new FormData(e.currentTarget);setBusy(true);setStatus("");
     try{
-      const address=String(f.get("address")).trim();
-      let latitude=editingHotel.latitude,longitude=editingHotel.longitude;
+      const address=String(f.get("address")).trim();let latitude=editingHotel.latitude,longitude=editingHotel.longitude;
       if(address!==editingHotel.address||latitude==null||longitude==null){const coords=await geocode(address);latitude=coords.latitude;longitude=coords.longitude}
-      const visible=f.get("is_visible")==="on";
-      const {error}=await supabase.from("hotels").update({name:String(f.get("name")).trim(),address,description:String(f.get("description")).trim()||null,latitude,longitude,is_visible:visible,updated_at:new Date().toISOString()}).eq("id",editingHotel.id);
+      const {error}=await supabase.from("hotels").update({name:String(f.get("name")).trim(),address,description:String(f.get("description")).trim()||null,latitude,longitude,is_visible:f.get("is_visible")==="on",updated_at:new Date().toISOString()}).eq("id",editingHotel.id);
       if(error)throw error;setEditingHotel(null);setStatus("Hotel aktualisiert.");await load();
-    }catch(error){setStatus(error instanceof Error?error.message:"Hotel konnte nicht aktualisiert werden.")}
-    finally{setBusy(false)}
+    }catch(error){setStatus(error instanceof Error?error.message:"Hotel konnte nicht aktualisiert werden.")}finally{setBusy(false)}
   }
 
   async function addKnowledge(e:FormEvent<HTMLFormElement>){
     e.preventDefault();const form=e.currentTarget;const f=new FormData(form);setBusy(true);setStatus("");
     try{
-      const address=String(f.get("address")).trim();let coords:{latitude:number;longitude:number}|null=null;if(address)coords=await geocode(address);
-      const visible=f.get("is_visible")==="on";
+      const address=String(f.get("address")).trim();let coords:{latitude:number;longitude:number}|null=null;if(address)coords=await geocode(address);const visible=f.get("is_visible")==="on";
       const {data,error}=await supabase.from("knowledge_items").insert({category:String(f.get("category")).trim()||"Allgemein",title:String(f.get("title")).trim(),description:String(f.get("description")).trim()||null,address:address||null,phone:String(f.get("phone")).trim()||null,url:String(f.get("url")).trim()||null,latitude:coords?.latitude??null,longitude:coords?.longitude??null,is_visible:visible,created_by:session!.user.id}).select().single();
-      if(error)throw error;
-      let message="Wissenswertes gespeichert.";
+      if(error)throw error;let message="Wissenswertes gespeichert.";
       if(visible&&f.get("send_push")==="on"){const sent=await sendTargetPush(`Neue Information: ${data.title}`,data.description||data.address||"Es gibt neue Tour-Informationen.",`/#knowledge-${data.id}`,`knowledge-${data.id}`);message+=` Push an ${sent} Geräte versendet.`}
       form.reset();setStatus(message);await load();
-    }catch(error){setStatus(error instanceof Error?error.message:"Fehler beim Speichern.")}
-    finally{setBusy(false)}
+    }catch(error){setStatus(error instanceof Error?error.message:"Fehler beim Speichern.")}finally{setBusy(false)}
+  }
+
+  async function saveKnowledge(e:FormEvent<HTMLFormElement>){
+    e.preventDefault();if(!editingKnowledge)return;const f=new FormData(e.currentTarget);setBusy(true);setStatus("");
+    try{
+      const address=String(f.get("address")).trim();let latitude=editingKnowledge.latitude,longitude=editingKnowledge.longitude;
+      if(address){if(address!==editingKnowledge.address||latitude==null||longitude==null){const coords=await geocode(address);latitude=coords.latitude;longitude=coords.longitude}}else{latitude=null;longitude=null}
+      const update={category:String(f.get("category")).trim()||"Allgemein",title:String(f.get("title")).trim(),description:String(f.get("description")).trim()||null,address:address||null,phone:String(f.get("phone")).trim()||null,url:String(f.get("url")).trim()||null,latitude,longitude,is_visible:f.get("is_visible")==="on",updated_at:new Date().toISOString()};
+      const {error}=await supabase.from("knowledge_items").update(update).eq("id",editingKnowledge.id);
+      if(error)throw error;setEditingKnowledge(null);setStatus("Wissenswertes aktualisiert.");await load();
+    }catch(error){setStatus(error instanceof Error?error.message:"Eintrag konnte nicht aktualisiert werden.")}finally{setBusy(false)}
   }
 
   async function toggle(table:"hotels"|"knowledge_items",id:string,current:boolean){
-    const next=!current;
-    const item=table==="hotels"?hotels.find(x=>x.id===id):knowledge.find(x=>x.id===id);
-    const label=table==="hotels"?(item as Hotel|undefined)?.name:(item as Knowledge|undefined)?.title;
-    const question=next
-      ? `„${label||"Dieser Inhalt"}“ jetzt für alle Teilnehmer sichtbar schalten?`
-      : `„${label||"Dieser Inhalt"}“ wieder vor den Teilnehmern verbergen?`;
-    if(!window.confirm(question))return;
-
-    const {error}=await supabase.from(table).update({is_visible:next,updated_at:new Date().toISOString()}).eq("id",id);
-    if(error){setStatus(error.message);return}
-
+    const next=!current;const item=table==="hotels"?hotels.find(x=>x.id===id):knowledge.find(x=>x.id===id);const label=table==="hotels"?(item as Hotel|undefined)?.name:(item as Knowledge|undefined)?.title;
+    if(!window.confirm(next?`„${label||"Dieser Inhalt"}“ jetzt für alle Teilnehmer sichtbar schalten?`:`„${label||"Dieser Inhalt"}“ wieder vor den Teilnehmern verbergen?`))return;
+    const {error}=await supabase.from(table).update({is_visible:next,updated_at:new Date().toISOString()}).eq("id",id);if(error){setStatus(error.message);return}
     let message=next?"Inhalt ist jetzt sichtbar.":"Inhalt wurde verborgen.";
     if(next&&window.confirm("Soll dazu jetzt auch eine Push-Nachricht an alle Teilnehmer gesendet werden?")){
       try{
         if(table==="hotels"){const hotel=hotels.find(x=>x.id===id);if(hotel){const sent=await sendTargetPush(`Hotel bekanntgegeben: ${hotel.name}`,hotel.description||hotel.address,`/#hotel-${hotel.id}`,`hotel-${hotel.id}`);message+=` Push an ${sent} Geräte versendet.`}}
-        else{const knowledgeItem=knowledge.find(x=>x.id===id);if(knowledgeItem){const sent=await sendTargetPush(`Neue Information: ${knowledgeItem.title}`,knowledgeItem.description||knowledgeItem.address||"Es gibt neue Tour-Informationen.",`/#knowledge-${knowledgeItem.id}`,`knowledge-${knowledgeItem.id}`);message+=` Push an ${sent} Geräte versendet.`}}
+        else{const info=knowledge.find(x=>x.id===id);if(info){const sent=await sendTargetPush(`Neue Information: ${info.title}`,info.description||info.address||"Es gibt neue Tour-Informationen.",`/#knowledge-${info.id}`,`knowledge-${info.id}`);message+=` Push an ${sent} Geräte versendet.`}}
       }catch(error){message+=` Sichtbar, aber Push fehlgeschlagen: ${error instanceof Error?error.message:"Unbekannter Fehler"}`}
     }
-    setStatus(message);await load()
+    setStatus(message);await load();
   }
+
   async function remove(table:"hotels"|"knowledge_items",id:string,label:string){if(!confirm(`${label} wirklich löschen?`))return;const {error}=await supabase.from(table).delete().eq("id",id);setStatus(error?error.message:`${label} gelöscht.`);await load()}
 
   return <AuthGate admin><Shell>
@@ -111,10 +108,13 @@ export default function PlacesAdminPage(){
       <form className="admin-card" onSubmit={addHotel}><Building2/><h2>Hotel anlegen</h2><input name="name" placeholder="Hotelname" required/><input name="address" placeholder="Vollständige Adresse" required/><textarea name="description" placeholder="Hinweise, Check-in, Zimmer …"/><label className="check-row"><input name="is_visible" type="checkbox"/> Sofort sichtbar schalten</label><label className="check-row"><input name="send_push" type="checkbox"/><BellRing/> Push mitsenden, sobald sichtbar</label><button className="primary-button" disabled={busy}><Plus/>Hotel speichern</button></form>
       <form className="admin-card" onSubmit={addKnowledge}><Info/><h2>Wissenswertes anlegen</h2><input name="category" placeholder="Kategorie, z. B. Nachtclub, Taxi, Essen"/><input name="title" placeholder="Name / Titel" required/><textarea name="description" placeholder="Beschreibung und Hinweise"/><input name="address" placeholder="Adresse (optional)"/><input name="phone" placeholder="Telefonnummer (optional)"/><input name="url" placeholder="Webseite oder Link (optional)"/><label className="check-row"><input name="is_visible" type="checkbox"/> Sofort sichtbar schalten</label><label className="check-row"><input name="send_push" type="checkbox"/><BellRing/> Push mitsenden, sobald sichtbar</label><button className="primary-button" disabled={busy}><Plus/>Information speichern</button></form>
 
-      <section className="admin-card admin-wide places-manage-card"><div className="places-section-head"><div><Building2/><div><span className="eyebrow">UNTERKÜNFTE</span><h2>Hotels verwalten</h2></div></div><span className="places-count">{hotels.length}</span></div><div className="places-list">{hotels.map(item=><article className="place-manage-item" key={item.id}><div className="place-copy"><div className="place-title-row"><strong>{item.name}</strong><span className={`visibility-pill ${item.is_visible?"is-on":"is-off"}`}>{item.is_visible?"Sichtbar":"Versteckt"}</span></div><small>{item.address}</small>{item.description&&<p>{item.description}</p>}</div><div className="place-actions"><button className="place-action" title="Bearbeiten" onClick={()=>setEditingHotel(item)}><Pencil/><span>Bearbeiten</span></button><button className="place-action" title={item.is_visible?"Verbergen":"Sichtbar schalten"} onClick={()=>toggle("hotels",item.id,item.is_visible)}>{item.is_visible?<EyeOff/>:<Eye/>}<span>{item.is_visible?"Verbergen":"Sichtbar"}</span></button><a className="place-action" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(item.address)}`}><Navigation/><span>Navigation</span></a><button className="place-action place-action-danger" onClick={()=>remove("hotels",item.id,"Hotel")}><Trash2/><span>Löschen</span></button></div></article>)}{!hotels.length&&<div className="places-empty"><Building2/><strong>Noch keine Hotels angelegt</strong><p>Lege oben das erste Hotel an.</p></div>}</div></section>
-      <section className="admin-card admin-wide places-manage-card"><div className="places-section-head"><div><Info/><div><span className="eyebrow">INFORMATIONEN</span><h2>Wissenswertes verwalten</h2></div></div><span className="places-count">{knowledge.length}</span></div><div className="places-list">{knowledge.map(item=><article className="place-manage-item" key={item.id}><div className="place-copy"><div className="place-title-row"><strong>{item.title}</strong><span className={`visibility-pill ${item.is_visible?"is-on":"is-off"}`}>{item.is_visible?"Sichtbar":"Versteckt"}</span></div><small>{item.category}</small><p>{item.description||item.address||item.phone||item.url||"Ohne Zusatzangabe"}</p></div><div className="place-actions place-actions-two"><button className="place-action" onClick={()=>toggle("knowledge_items",item.id,item.is_visible)}>{item.is_visible?<EyeOff/>:<Eye/>}<span>{item.is_visible?"Verbergen":"Sichtbar"}</span></button><button className="place-action place-action-danger" onClick={()=>remove("knowledge_items",item.id,"Eintrag")}><Trash2/><span>Löschen</span></button></div></article>)}{!knowledge.length&&<div className="places-empty"><Info/><strong>Noch keine Informationen angelegt</strong><p>Ergänze oben beispielsweise Taxi, Essen oder Nachtleben.</p></div>}</div></section>
+      <section className="admin-card admin-wide places-manage-card"><div className="places-section-head"><div><Building2/><div><span className="eyebrow">UNTERKÜNFTE</span><h2>Hotels verwalten</h2></div></div><span className="places-count">{hotels.length}</span></div><div className="places-list">{hotels.map(item=><article className="place-manage-item" key={item.id}><div className="place-copy"><div className="place-title-row"><strong>{item.name}</strong><span className={`visibility-pill ${item.is_visible?"is-on":"is-off"}`}>{item.is_visible?"Sichtbar":"Versteckt"}</span></div><small>{item.address}</small>{item.description&&<p>{item.description}</p>}</div><div className="place-actions"><button className="place-action" type="button" onClick={()=>setEditingHotel(item)}><Pencil/><span>Bearbeiten</span></button><button className="place-action" type="button" onClick={()=>toggle("hotels",item.id,item.is_visible)}>{item.is_visible?<EyeOff/>:<Eye/>}<span>{item.is_visible?"Verbergen":"Sichtbar"}</span></button><a className="place-action" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(item.address)}`}><Navigation/><span>Route</span></a><button className="place-action place-action-danger" type="button" onClick={()=>remove("hotels",item.id,"Hotel")}><Trash2/><span>Löschen</span></button></div></article>)}{!hotels.length&&<div className="places-empty"><Building2/><strong>Noch keine Hotels angelegt</strong><p>Lege oben das erste Hotel an.</p></div>}</div></section>
+
+      <section className="admin-card admin-wide places-manage-card"><div className="places-section-head"><div><Info/><div><span className="eyebrow">INFORMATIONEN</span><h2>Wissenswertes verwalten</h2></div></div><span className="places-count">{knowledge.length}</span></div><div className="places-list">{knowledge.map(item=><article className="place-manage-item" key={item.id}><div className="place-copy"><div className="place-title-row"><strong>{item.title}</strong><span className={`visibility-pill ${item.is_visible?"is-on":"is-off"}`}>{item.is_visible?"Sichtbar":"Versteckt"}</span></div><small>{item.category}</small>{item.description&&<p>{item.description}</p>}{!item.description&&item.address&&<p>{item.address}</p>}</div><div className="place-actions"><button className="place-action" type="button" onClick={()=>setEditingKnowledge(item)}><Pencil/><span>Bearbeiten</span></button><button className="place-action" type="button" onClick={()=>toggle("knowledge_items",item.id,item.is_visible)}>{item.is_visible?<EyeOff/>:<Eye/>}<span>{item.is_visible?"Verbergen":"Sichtbar"}</span></button><button className="place-action place-action-danger" type="button" onClick={()=>remove("knowledge_items",item.id,"Eintrag")}><Trash2/><span>Löschen</span></button></div></article>)}{!knowledge.length&&<div className="places-empty"><Info/><strong>Noch keine Informationen angelegt</strong><p>Ergänze oben beispielsweise Taxi, Essen oder Nachtleben.</p></div>}</div></section>
     </div>
 
     {editingHotel&&<div className="admin-modal" onClick={()=>!busy&&setEditingHotel(null)}><form className="admin-modal-card" onClick={e=>e.stopPropagation()} onSubmit={saveHotel}><button type="button" className="modal-close" disabled={busy} onClick={()=>setEditingHotel(null)}><X/></button><span className="eyebrow">HOTEL BEARBEITEN</span><h2>{editingHotel.name}</h2><p className="hotel-edit-meta">Bei einer geänderten Adresse wird die Kartenposition automatisch neu ermittelt.</p><input name="name" defaultValue={editingHotel.name} placeholder="Hotelname" required/><input name="address" defaultValue={editingHotel.address} placeholder="Vollständige Adresse" required/><textarea className="hotel-edit-description" name="description" defaultValue={editingHotel.description||""} placeholder="Hinweise, Check-in, Zimmer …"/><label className="check-row"><input name="is_visible" type="checkbox" defaultChecked={editingHotel.is_visible}/> Für Teilnehmer sichtbar</label><button className="primary-button" disabled={busy}><Pencil/>{busy?"Wird gespeichert …":"Änderungen speichern"}</button></form></div>}
+
+    {editingKnowledge&&<div className="admin-modal" onClick={()=>!busy&&setEditingKnowledge(null)}><form className="admin-modal-card knowledge-edit-modal" onClick={e=>e.stopPropagation()} onSubmit={saveKnowledge}><button type="button" className="modal-close" disabled={busy} onClick={()=>setEditingKnowledge(null)}><X/></button><span className="eyebrow">WISSENSWERTES BEARBEITEN</span><h2>{editingKnowledge.title}</h2><p className="knowledge-edit-meta">Änderst du die Adresse, wird die Kartenposition automatisch neu ermittelt.</p><div className="knowledge-edit-grid"><input name="category" defaultValue={editingKnowledge.category} placeholder="Kategorie"/><input name="title" defaultValue={editingKnowledge.title} placeholder="Name / Titel" required/><textarea className="full" name="description" defaultValue={editingKnowledge.description||""} placeholder="Beschreibung und Hinweise"/><input className="full" name="address" defaultValue={editingKnowledge.address||""} placeholder="Adresse (optional)"/><input name="phone" defaultValue={editingKnowledge.phone||""} placeholder="Telefonnummer (optional)"/><input name="url" defaultValue={editingKnowledge.url||""} placeholder="Webseite oder Link (optional)"/></div><label className="check-row"><input name="is_visible" type="checkbox" defaultChecked={editingKnowledge.is_visible}/> Für Teilnehmer sichtbar</label><button className="primary-button" disabled={busy}><Pencil/>{busy?"Wird gespeichert …":"Änderungen speichern"}</button></form></div>}
   </Shell></AuthGate>;
 }
