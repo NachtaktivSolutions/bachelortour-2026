@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Home, Map, MessageCircle, Images, Users, Shield, LogOut, CalendarCog, MapPinned, Luggage, ListChecks, LayoutDashboard, ChevronDown, LifeBuoy, BellRing, Volume2, Eye, EyeOff, Smartphone, Sparkles, Newspaper } from "lucide-react";
+import { Home, Map, MessageCircle, Images, Users, Shield, LogOut, CalendarCog, MapPinned, Luggage, ListChecks, LayoutDashboard, ChevronDown, LifeBuoy, BellRing, Volume2, Eye, EyeOff, Smartphone, Sparkles, Newspaper, Beer } from "lucide-react";
 import { useApp } from "./app-provider";
 import { createClient } from "@/lib/supabase/client";
 import { PwaInstallPrompt } from "./pwa-install-prompt";
@@ -13,6 +13,7 @@ const nav = [
   { href: "/", label: "Home", icon: Home },
   { href: "/map", label: "Karte", icon: Map },
   { href: "/chat", label: "Chat", icon: MessageCircle },
+  { href: "/bachelorando", label: "Bachelorando", icon: Beer },
   { href: "/ai-guide", label: "KI-Guide", icon: Sparkles },
   { href: "/gallery", label: "Fotos", icon: Images },
   { href: "/members", label: "Bachelor", icon: Users }
