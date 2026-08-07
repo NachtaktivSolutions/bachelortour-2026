@@ -4,33 +4,40 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
-type EasterEggProps={open:boolean;onClose:()=>void};
+type EasterEggProps={open:boolean;onClose:()=>void;audio?:HTMLAudioElement|null};
 
-export function EasterEgg({open,onClose}:EasterEggProps){
-  const audioRef=useRef<HTMLAudioElement|null>(null);
+export function EasterEgg({open,onClose,audio}:EasterEggProps){
+  const fallbackAudioRef=useRef<HTMLAudioElement|null>(null);
   const videoRef=useRef<HTMLVideoElement|null>(null);
-  const backgroundVideoRef=useRef<HTMLVideoElement|null>(null);
   const [remaining,setRemaining]=useState(20);
 
   useEffect(()=>{
     if(!open)return;
     setRemaining(20);
 
-    const audio=new Audio("/easter-egg.mp3");
-    audio.preload="auto";
-    audio.volume=.95;
-    audio.currentTime=0;
-    audioRef.current=audio;
+    const soundtrack=audio??new Audio("/easter-egg.mp3");
+    if(!audio){
+      soundtrack.preload="auto";
+      soundtrack.volume=.95;
+      soundtrack.currentTime=0;
+      fallbackAudioRef.current=soundtrack;
+      soundtrack.play().catch(()=>{});
+    }
 
-    const videos=[backgroundVideoRef.current,videoRef.current].filter(Boolean) as HTMLVideoElement[];
-    videos.forEach(video=>{
+    const video=videoRef.current;
+    if(video){
       video.currentTime=0;
       video.muted=true;
       video.volume=0;
       video.play().catch(()=>{});
-    });
-    audio.play().catch(()=>{});
+    }
 
+    const syncToSoundtrack=()=>{
+      if(!video||soundtrack.paused)return;
+      const drift=Math.abs(video.currentTime-soundtrack.currentTime);
+      if(drift>.18)video.currentTime=soundtrack.currentTime;
+    };
+    const syncTimer=window.setInterval(syncToSoundtrack,500);
     const timer=window.setTimeout(onClose,20000);
     const counter=window.setInterval(()=>setRemaining(value=>Math.max(0,value-1)),1000);
     const key=(event:KeyboardEvent)=>{if(event.key==="Escape")onClose()};
@@ -38,22 +45,22 @@ export function EasterEgg({open,onClose}:EasterEggProps){
     document.addEventListener("keydown",key);
 
     return()=>{
+      window.clearInterval(syncTimer);
       window.clearTimeout(timer);
       window.clearInterval(counter);
       document.removeEventListener("keydown",key);
       document.body.classList.remove("easter-egg-open");
-      audio.pause();
-      audio.currentTime=0;
-      audioRef.current=null;
-      videos.forEach(video=>{video.pause();video.currentTime=0;});
+      soundtrack.pause();
+      try{soundtrack.currentTime=0}catch{}
+      fallbackAudioRef.current=null;
+      if(video){video.pause();try{video.currentTime=0}catch{}}
     };
-  },[open,onClose]);
+  },[open,onClose,audio]);
 
   if(!open||typeof document==="undefined")return null;
 
   return createPortal(
     <div className="easter-overlay easter-video-mode" role="dialog" aria-modal="true" aria-label="Firestarter 2026 Easter Egg">
-      <video ref={backgroundVideoRef} className="easter-video easter-video-background" src="/easter-egg.mp4" muted playsInline preload="auto" aria-hidden="true"/>
       <video ref={videoRef} className="easter-video easter-video-foreground" src="/easter-egg.mp4" muted playsInline preload="auto" aria-hidden="true"/>
       <div className="easter-video-vignette"/>
       <div className="easter-smoke smoke-a"/><div className="easter-smoke smoke-b"/>
