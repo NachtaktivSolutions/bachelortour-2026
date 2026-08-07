@@ -28,22 +28,20 @@ export async function POST(req:NextRequest){
   if(count>=MAX_QUESTIONS_PER_HOUR)return NextResponse.json({error:"30 Fragen in einer Stunde – Respekt. Gönn dem Guide kurz Luft und probier’s später nochmal. 😄"},{status:429});
   if(!process.env.OPENAI_API_KEY)return NextResponse.json({error:"Der KI-Motor ist gerade nicht angeschlossen. Das Gremium muss wohl kurz unter die Haube schauen. 🔧",code:"OPENAI_NOT_CONFIGURED"},{status:503});
 
-  // WICHTIG: Erst den bereits serverseitig freigegebenen Tour-Kontext laden und
-  // Tourfragen daraus beantworten. So wird z.B. „Wo ist unser Hotel?“ niemals
-  // fälschlich als Suche nach dem Live-Standort einer Person interpretiert.
   const {data,error}=await auth.supabase.rpc("get_ai_guide_public_context");
   if(error)return NextResponse.json({error:"Die freigegebenen Tourdaten wollten gerade nicht mitspielen. Versuch’s gleich nochmal. 😄"},{status:500});
   const context=sanitizePublicContext((data||{program_items:[],hotels:[],knowledge:[],news:[]}) as PublicContext);
   const location=validLocation(body.location)?body.location!:null;
+  const history=(body.history||[]).filter(m=>(m.role==="user"||m.role==="assistant")&&typeof m.content==="string").slice(-8).map(m=>({role:m.role,content:m.content.slice(0,1200)}));
 
-  const deterministic=answerFromVisibleTourData(question,context);
+  // Tourdaten zuerst und deterministisch behandeln. Dabei werden auch kurze
+  // Anschlussfragen wie „Und wann geht’s weiter?“ verstanden.
+  const deterministic=answerFromVisibleTourData(question,context,history);
   if(deterministic){
     await logUsage(auth.supabase,auth.userId,question.length);
     return NextResponse.json({...deterministic,answer:sanitizeGuideText(deterministic.answer),remaining:Math.max(0,MAX_QUESTIONS_PER_HOUR-count-1)});
   }
 
-  // Personenstandorte werden ausschließlich serverseitig verarbeitet und nie
-  // an OpenAI übergeben. Tourbegriffe wie Hotel/Zuhause/Base sind ausgeschlossen.
   const personQuery=extractPersonLocationQuery(question);
   if(personQuery){
     const personAnswer=await answerPersonLocation(auth.supabase,personQuery);
@@ -54,7 +52,6 @@ export async function POST(req:NextRequest){
   const nearby=asksForNearby(question);
   if(nearby&&!location)return NextResponse.json({answer:"Dafür brauch ich kurz deinen Standort – sonst such ich dir am Ende eine Apotheke in Buxtehude raus. 😄 Tippe auf „Standort verwenden“ oder nenn mir einen Ort.",actions:[],needsLocation:true,remaining:Math.max(0,MAX_QUESTIONS_PER_HOUR-count)});
   const places=location&&nearby?await searchNearbyPlaces(question,location):[];
-  const history=(body.history||[]).filter(m=>(m.role==="user"||m.role==="assistant")&&typeof m.content==="string").slice(-8).map(m=>({role:m.role,content:m.content.slice(0,1200)}));
   const instructions=`Du bist der Firestarter KI-Guide der Bachelortour 2026.
 
 PERSÖNLICHKEIT:
@@ -67,6 +64,7 @@ PERSÖNLICHKEIT:
 FAKTENTREUE:
 - Erfinde niemals Fakten, Namen, Zeiten, Adressen, Programmpunkte, Hotels oder Ziele.
 - Nutze ausschließlich FREIGEGEBENE_TOURDATEN und ORTE_IN_DER_NAEHE.
+- Verstehe kurze Anschlussfragen im Gesprächskontext, z.B. „und wann geht’s weiter?“, „was kommt danach?“, „und dann?“ oder „wohin danach?“.
 - Bei Fragen nach unserem Hotel, Zuhause, Unterkunft, Schlafplatz oder unserer Base haben FREIGEGEBENE_TOURDATEN immer Vorrang vor externen Orten.
 - Bei lokalen Suchen nenne nur gelieferte Orte samt Adresse, Bewertung und Öffnungsstatus, soweit vorhanden.
 - Wenn ORTE_IN_DER_NAEHE Einträge enthält, behaupte niemals, es seien keine Orte oder keine sichere Antwort gefunden worden.
@@ -107,8 +105,6 @@ function norm(v:unknown){return String(v??"").trim()}
 function normalizeName(v:string){return v.toLocaleLowerCase("de-DE").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9äöüß\s-]/gi,"").trim()}
 function sanitizeGuideText(text:string){return text.replace(/\bOrga(?:nisationsteam|nisator(?:en|innen)?|nisatorin|nisation)?\b/gi,"Gremium")}
 
-// Defense in depth: Die RPC ist die eigentliche Sicherheitsgrenze. Zusätzlich
-// werden Einträge verworfen, falls sie trotz RPC explizit als verborgen markiert sind.
 function isExplicitlyHidden(item:PublicItem){
   const values=[item.visible,item.is_visible,item.published,item.is_published,item.released,item.is_released];
   return values.some(v=>v===false);
@@ -123,8 +119,6 @@ function extractPersonLocationQuery(question:string){
     const m=q.match(p);if(!m)continue;
     const name=m[1].replace(/\b(?:gerade|aktuell|jetzt)\b/gi,"").trim();
     if(!name||name.length>80)continue;
-    // Tour-Orte sind niemals Personen. Das verhindert genau den Fehler
-    // „Wo ist unser Hotel?“ -> vermeintlicher Personen-Live-Standort.
     if(/\b(unser(?:e[rmns]?)?|hotel|unterkunft|pension|schlafplatz|zuhause|zu hause|heim|base|quartier|bleibe|treffpunkt)\b/i.test(name))continue;
     if(/^(das|die|der|hier|apotheke|bar|club|restaurant|taxi)$/i.test(name))continue;
     return name;
@@ -162,22 +156,34 @@ function actionFor(type:string,item:PublicItem):Action{
   return{type,label,subtitle:address||"In der App anzeigen",appUrl,...(destination?{navigationUrl:`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}`}:{})};
 }
 
-function answerFromVisibleTourData(question:string,context:PublicContext):{answer:string;actions:Action[];needsLocation:false}|null{
-  const q=question.toLowerCase();
+function answerFromVisibleTourData(question:string,context:PublicContext,history:ChatMessage[]=[]):{answer:string;actions:Action[];needsLocation:false}|null{
+  const q=question.toLowerCase().trim();
+  const previousUser=[...history].reverse().find(m=>m.role==="user")?.content.toLowerCase()||"";
+  const previousAssistant=[...history].reverse().find(m=>m.role==="assistant")?.content.toLowerCase()||"";
+
   const asksHotel=/\b(hotel|unterkunft|pension|schlafplatz|zuhause|zu hause|heim|base|quartier|bleibe)\b/.test(q)&&(/\b(unser|unsere|unserem|unseren|unserer|tour|wir|schlafen|übernachten|wohnen|hin|dorthin|adresse|wo)\b/.test(q)||/^hotel\??$/.test(q));
   if(asksHotel){
     if(!context.hotels.length)return{answer:"Aktuell ist für Teilnehmer noch kein Hotel freigeschaltet. Sobald das Gremium eins sichtbar schaltet, kenne ich genau dieses – und nichts Verborgenes. 😄",actions:[],needsLocation:false};
     const lines=context.hotels.map(h=>`${norm(h.name||h.title)}${norm(h.address)?` – ${norm(h.address)}`:""}${norm(h.description)?`\n${norm(h.description)}`:""}`);
     return{answer:`Hier wird später mehr oder weniger würdevoll genächtigt:\n\n${lines.join("\n\n")}\n\nIch sehe dabei ausschließlich die freigeschalteten Hoteldaten. 😄`,actions:context.hotels.map(h=>actionFor("hotel",h)),needsLocation:false};
   }
-  const asksProgram=/(heute|morgen|programm|programmpunkt|was steht an)/.test(q)||/was.{0,16}steht.{0,16}(als )?nächst/.test(q)||/nächste.{0,24}(programm|programmpunkt|termin|punkt)/.test(q)||/(programm|programmpunkt|termin).{0,24}nächste/.test(q)||/was.{0,14}(kommt|passiert).{0,12}als nächstes/.test(q);
+
+  const explicitProgram=/(heute|morgen|programm|programmpunkt|was steht an)/.test(q)||/was.{0,16}steht.{0,16}(als )?nächst/.test(q)||/nächste.{0,24}(programm|programmpunkt|termin|punkt)/.test(q)||/(programm|programmpunkt|termin).{0,24}nächste/.test(q)||/was.{0,14}(kommt|passiert).{0,12}als nächstes/.test(q)||/wann.{0,12}(geht|geht['’]?s|geht es).{0,10}weiter/.test(q)||/wie.{0,10}geht.{0,10}weiter/.test(q)||/was.{0,10}kommt.{0,10}danach/.test(q)||/^und dann[?.!]*$/.test(q)||/^danach[?.!]*$/.test(q);
+  const contextualProgram=/^(und\s+)?(wann|wie|was|wohin).{0,24}(weiter|danach|nächst)|^(und\s+)?dann\??$/.test(q)&&(/hotel|programm|programmpunkt|weiter|danach|nächst/.test(previousUser+" "+previousAssistant));
+  const asksProgram=explicitProgram||contextualProgram;
   if(asksProgram){
-    if(!context.program_items.length)return{answer:"Der freigegebene Plan ist aktuell leer. Das Gremium spielt offenbar weiter Geheimdienst. 🕵️",actions:[],needsLocation:false};
-    const items=[...context.program_items].sort((a,b)=>new Date(norm(a.starts_at)).getTime()-new Date(norm(b.starts_at)).getTime()).slice(0,6);
-    const lines=items.map(i=>{const d=norm(i.starts_at)?new Date(norm(i.starts_at)).toLocaleString("de-DE",{timeZone:"Europe/Berlin",weekday:"short",hour:"2-digit",minute:"2-digit"}):"";return`${d?`${d}: `:""}${norm(i.title)}${norm(i.address)?` – ${norm(i.address)}`:""}`});
-    const intro=/morgen/.test(q)?"Morgen wird offenbar nicht ausgeschlafen – Überraschung. 😄":/heute/.test(q)?"Heute heißt es: Termine merken, bevor das Kurzzeitgedächtnis Feierabend macht. 🍻":"Der nächste freigegebene Schritt ins kontrollierte Chaos:";
-    return{answer:`${intro}\n\n${lines.join("\n")}\n\nMehr ist nicht freigeschaltet – auch nicht gegen Bestechungsbier. 😄`,actions:items.map(i=>actionFor("program",i)),needsLocation:false};
+    const now=Date.now();
+    const all=[...context.program_items].filter(i=>{const t=new Date(norm(i.starts_at)).getTime();return Number.isFinite(t)}).sort((a,b)=>new Date(norm(a.starts_at)).getTime()-new Date(norm(b.starts_at)).getTime());
+    const upcoming=all.filter(i=>new Date(norm(i.starts_at)).getTime()>=now-5*60*1000);
+    if(!upcoming.length)return{answer:"Aktuell ist kein weiterer freigeschalteter Programmpunkt bekannt. Wenn das Gremium den nächsten Punkt freigibt, taucht er hier sofort auf. 😄",actions:[],needsLocation:false};
+
+    const asksSingleNext=/weiter|danach|als nächstes|nächste|nächster|und dann/.test(q);
+    const items=(asksSingleNext?upcoming.slice(0,1):upcoming.slice(0,6));
+    const lines=items.map(i=>{const d=new Date(norm(i.starts_at)).toLocaleString("de-DE",{timeZone:"Europe/Berlin",weekday:"short",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});return`${d}: ${norm(i.title)}${norm(i.address)?` – ${norm(i.address)}`:""}`});
+    const intro=/morgen/.test(q)?"Morgen geht’s so weiter:":/heute/.test(q)?"Heute steht noch Folgendes an:":asksSingleNext?"Als Nächstes geht’s hier weiter:":"Das ist aktuell freigeschaltet:";
+    return{answer:`${intro}\n\n${lines.join("\n")}\n\nMehr verrate ich nicht als tatsächlich freigeschaltet ist. 😄`,actions:items.map(i=>actionFor("program",i)),needsLocation:false};
   }
+
   if(/(wissenswert|information|infos|freigeschaltet)/.test(q)){
     if(!context.knowledge.length)return{answer:"Offiziell wissenswert ist gerade noch nichts. Das Gremium hält den Deckel drauf. 😄",actions:[],needsLocation:false};
     const items=context.knowledge.slice(0,6);return{answer:`Kleines Überlebenshandbuch:\n\n${items.map(i=>`${norm(i.title)}${norm(i.description)?`: ${norm(i.description)}`:""}`).join("\n\n")}\n\nMehr dichte ich nicht dazu. 😄`,actions:items.map(i=>actionFor("knowledge",i)),needsLocation:false};
