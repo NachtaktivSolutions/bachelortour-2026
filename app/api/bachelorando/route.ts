@@ -83,9 +83,11 @@ export async function POST(req:NextRequest){
     if(!orderId)return NextResponse.json({error:"Bestellung fehlt."},{status:400});
     const {data:order}=await ctx.admin.from("bachelorando_orders").select("*").eq("id",orderId).single();
     if(!order)return NextResponse.json({error:"Bestellung nicht gefunden."},{status:404});
+    const requester=order.requester_id===ctx.user.id;
+    const newBachelor=await isNewBachelor(ctx.admin,ctx.user.id);
 
     if(action==="claim"){
-      if(!(await isNewBachelor(ctx.admin,ctx.user.id)))return NextResponse.json({error:"Nur Neu-Bachelor dürfen Bestellungen übernehmen."},{status:403});
+      if(!newBachelor)return NextResponse.json({error:"Nur Neu-Bachelor dürfen Bestellungen übernehmen."},{status:403});
       if(order.status!=="open")return NextResponse.json({error:"Diese Bestellung wurde bereits übernommen."},{status:409});
       const now=new Date().toISOString();
       const {data:updated,error}=await ctx.admin.from("bachelorando_orders").update({status:"claimed",claimed_by:ctx.user.id,claimed_at:now,updated_at:now}).eq("id",orderId).eq("status","open").select("id").maybeSingle();
@@ -95,21 +97,25 @@ export async function POST(req:NextRequest){
     }
 
     if(action==="deliver"){
-      if(!(await isNewBachelor(ctx.admin,ctx.user.id)))return NextResponse.json({error:"Nur Neu-Bachelor dürfen als geliefert markieren."},{status:403});
-      if(order.status!=="claimed"||order.claimed_by!==ctx.user.id)return NextResponse.json({error:"Nur der zuständige Neu-Bachelor kann diese Bestellung abschließen."},{status:403});
+      if(!requester&&!newBachelor)return NextResponse.json({error:"Nur der Besteller oder ein Neu-Bachelor kann diese Bestellung erledigen."},{status:403});
+      if(order.status==="delivered")return NextResponse.json({error:"Diese Bestellung ist bereits erledigt."},{status:400});
+      if(order.status==="cancelled")return NextResponse.json({error:"Stornierte Bestellungen können nicht erledigt werden."},{status:400});
       const now=new Date().toISOString();
-      const {error}=await ctx.admin.from("bachelorando_orders").update({status:"delivered",delivered_at:now,updated_at:now}).eq("id",orderId);
+      const deliveredBy=order.claimed_by||(!requester&&newBachelor?ctx.user.id:null);
+      const {error}=await ctx.admin.from("bachelorando_orders").update({status:"delivered",claimed_by:deliveredBy,claimed_at:order.claimed_at||(!requester&&newBachelor?now:null),delivered_at:now,updated_at:now}).eq("id",orderId);
       if(error)throw error;
-      await sendPush(ctx.admin,[order.requester_id],{title:"✅ Bachelorando geliefert",body:`${order.quantity}× ${order.item} wurde als geliefert markiert. Prost!`,url:"/bachelorando",tag:`bachelorando-delivered-${orderId}`});
+      if(!requester)await sendPush(ctx.admin,[order.requester_id],{title:"✅ Bachelorando erledigt",body:`${order.quantity}× ${order.item} wurde als erledigt markiert. Prost!`,url:"/bachelorando",tag:`bachelorando-delivered-${orderId}`});
       return NextResponse.json({ok:true});
     }
 
     if(action==="cancel"){
-      if(order.requester_id!==ctx.user.id)return NextResponse.json({error:"Nur der Besteller kann stornieren."},{status:403});
-      if(order.status==="delivered")return NextResponse.json({error:"Gelieferte Bestellungen können nicht storniert werden."},{status:400});
+      if(!requester&&!newBachelor)return NextResponse.json({error:"Nur der Besteller oder ein Neu-Bachelor kann stornieren."},{status:403});
+      if(order.status==="delivered")return NextResponse.json({error:"Erledigte Bestellungen können nicht storniert werden."},{status:400});
+      if(order.status==="cancelled")return NextResponse.json({error:"Diese Bestellung ist bereits storniert."},{status:400});
       const now=new Date().toISOString();
       const {error}=await ctx.admin.from("bachelorando_orders").update({status:"cancelled",updated_at:now}).eq("id",orderId);
       if(error)throw error;
+      if(!requester)await sendPush(ctx.admin,[order.requester_id],{title:"❌ Bachelorando storniert",body:`${ctx.profile.name} hat deine Bestellung ${order.quantity}× ${order.item} storniert.`,url:"/bachelorando",tag:`bachelorando-cancelled-${orderId}`});
       return NextResponse.json({ok:true});
     }
 
