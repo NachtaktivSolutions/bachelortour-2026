@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Home, Map, MessageCircle, Images, Users, Shield, LogOut, CalendarCog, MapPinned, Luggage, ListChecks, LayoutDashboard, ChevronDown, LifeBuoy, BellRing, Volume2, Eye, EyeOff, Smartphone, Sparkles } from "lucide-react";
+import { Home, Map, MessageCircle, Images, Users, Shield, LogOut, CalendarCog, MapPinned, Luggage, ListChecks, LayoutDashboard, ChevronDown, LifeBuoy, BellRing, Volume2, Eye, EyeOff, Smartphone, Sparkles, Newspaper } from "lucide-react";
 import { useApp } from "./app-provider";
 import { createClient } from "@/lib/supabase/client";
 import { PwaInstallPrompt } from "./pwa-install-prompt";
@@ -19,7 +19,8 @@ const nav = [
 ];
 
 const adminLinks = [
-  { href: "/admin", label: "Admin-Zentrale", description: "Neuigkeiten, Push, Tour und Mitglieder", icon: LayoutDashboard },
+  { href: "/admin", label: "Admin-Zentrale", description: "Push, Tour und Mitglieder", icon: LayoutDashboard },
+  { href: "/admin/news", label: "Neuigkeiten verwalten", description: "Vorbereiten, bearbeiten und gezielt veröffentlichen", icon: Newspaper },
   { href: "/admin/devices", label: "Geräteübersicht", description: "Installation, Push, Standort und Online-Status", icon: Smartphone },
   { href: "/admin/reminders", label: "Erinnerungen", description: "Automatische Pushs planen und verwalten", icon: BellRing },
   { href: "/admin/events", label: "Programm verwalten", description: "Programmpunkte anlegen und bearbeiten", icon: CalendarCog },
