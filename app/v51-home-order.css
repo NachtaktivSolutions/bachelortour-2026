@@ -1,0 +1,7 @@
+/* V51: Startseite folgt wieder der gewuenschten Reihenfolge. */
+.page-content:has(>.premium-hero){display:flex;flex-direction:column}
+.page-content:has(>.premium-hero)>.premium-hero{order:1}
+.page-content:has(>.premium-hero)>.quick-stats{order:2}
+.page-content:has(>.premium-hero)>.released-hotels{order:3;width:100%}
+.page-content:has(>.premium-hero)>.knowledge-launch-section{order:4;width:100%}
+.page-content:has(>.premium-hero)>*:not(.premium-hero):not(.quick-stats):not(.released-hotels):not(.knowledge-launch-section){order:5}
