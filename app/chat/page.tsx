@@ -42,11 +42,12 @@ export default function ChatPage() {
     const container = listRef.current;
     const wasNearBottom = container ? container.scrollHeight - container.scrollTop - container.clientHeight < 120 : true;
 
-    // Nachrichten sind der Kern des Chats und dürfen nie von optionalen
-    // Zusatzfunktionen wie Reaktionen abhängig sein.
+    // Die Profilbeziehung ist absichtlich über den exakten Foreign-Key benannt.
+    // Dadurch bleibt der Chat auch dann stabil, wenn später weitere Relationen
+    // zwischen chat_messages und profiles hinzukommen.
     const messageResult = await supabase
       .from("chat_messages")
-      .select("*, profiles(name,avatar_url)")
+      .select("*, profiles!chat_messages_sender_id_fkey(name,avatar_url)")
       .order("created_at")
       .limit(300);
 
@@ -55,10 +56,9 @@ export default function ChatPage() {
       return;
     }
 
+    setStatus("");
     setMessages((messageResult.data as ChatMessage[]) ?? []);
 
-    // Settings und Reaktionen separat laden. Ein Fehler hier darf den Chat
-    // nicht ausblenden.
     const [settingsResult,reactionResult] = await Promise.all([
       supabase.from("event_settings").select("chat_locked,pinned_chat_message_id").eq("id",1).maybeSingle(),
       supabase.from("chat_message_reactions").select("message_id,user_id,emoji")
