@@ -41,10 +41,11 @@ import "./v45-mobile-overlays.css";
 import "./v46-hero-hotels.css";
 import "./v47-places-admin.css";
 import "./v50-rideshare.css";
+import "./v51-home-order.css";
 import "leaflet/dist/leaflet.css";
 import { AppProvider } from "@/components/app-provider";
 import { AppTour } from "@/components/app-tour";
 import { RideshareBoardPortal } from "@/components/rideshare-board-portal";
-export const metadata:Metadata={title:"Firestarter 2026",applicationName:"Firestarter 2026",description:"News, Chat, Fotos, Karte und Live-Standorte für die Bachelortour 2026",manifest:"/manifest.webmanifest?v=50",appleWebApp:{capable:true,statusBarStyle:"black",title:"Firestarter 2026"},icons:{icon:"/api/branding/icon?v=50",apple:"/api/branding/icon?v=50"}};
+export const metadata:Metadata={title:"Firestarter 2026",applicationName:"Firestarter 2026",description:"News, Chat, Fotos, Karte und Live-Standorte für die Bachelortour 2026",manifest:"/manifest.webmanifest?v=51",appleWebApp:{capable:true,statusBarStyle:"black",title:"Firestarter 2026"},icons:{icon:"/api/branding/icon?v=51",apple:"/api/branding/icon?v=51"}};
 export const viewport:Viewport={themeColor:"#090909",width:"device-width",initialScale:1,maximumScale:1,viewportFit:"cover"};
 export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="de"><body><AppProvider>{children}<RideshareBoardPortal/><AppTour/></AppProvider></body></html>}
