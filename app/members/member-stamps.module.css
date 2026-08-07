@@ -1,0 +1,16 @@
+.memberName{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.memberName em{margin-left:0!important}
+.memberStamp{display:inline-flex;align-items:center;max-width:100%;padding:4px 8px;border-radius:999px;border:1px solid rgba(255,186,73,.38);background:linear-gradient(135deg,rgba(255,106,0,.18),rgba(255,197,80,.09));box-shadow:0 0 18px rgba(255,106,0,.1);color:#ffd49a;font-size:.65rem;font-weight:900;letter-spacing:.02em;line-height:1.1;white-space:nowrap}
+.heroBadges{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;margin-top:7px}
+.stampEditor{margin:16px 0;padding:15px;border:1px solid #3b2a1c;border-radius:18px;background:linear-gradient(145deg,#1d1712,#111)}
+.stampEditorTitle{display:flex;align-items:center;gap:10px}
+.stampEditorTitle>svg{color:var(--accent);flex:0 0 auto}
+.stampEditorTitle h3{margin:2px 0 0;font-size:1rem}
+.stampEditor>p{margin:8px 0 12px;color:#999;font-size:.8rem;line-height:1.45}
+.presetGrid{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px}
+.presetGrid button{border:1px solid #353535;background:#202020;color:#ddd;border-radius:999px;padding:8px 10px;font-size:.72rem;font-weight:800}
+.presetGrid button.presetActive{border-color:var(--accent);background:#3a210f;color:#ffd7b8;box-shadow:0 0 16px rgba(255,106,0,.14)}
+.stampActions{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px}
+.clearStamp{border:1px solid #5b2926;border-radius:14px;padding:11px 13px;background:#321817;color:#ffaaa4;font-weight:800;display:flex;align-items:center;justify-content:center;gap:7px}
+.clearStamp svg{width:17px;height:17px}
+@media(max-width:520px){.stampActions{grid-template-columns:1fr}.memberStamp{white-space:normal;text-align:center}}
