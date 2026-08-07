@@ -10,7 +10,7 @@ import styles from "./bachelorando.module.css";
 
 type Person={name:string|null;avatar_url:string|null};
 type Order={id:string;requester_id:string;item:string;quantity:number;seat:string;note:string|null;status:"open"|"claimed"|"delivered"|"cancelled";claimed_by:string|null;created_at:string;claimed_at:string|null;delivered_at:string|null;requester:Person|null;courier:Person|null};
-const presets=["🍺 Bier","💧 Wasser","🥃 Shot","🥤 Softdrink"];
+const presets=["🍺 Bier","💧 Wasser","🥤 Softdrink","🍿 Snack"];
 
 export default function BachelorandoPage(){
  const {profile,session}=useApp();
