@@ -37,6 +37,15 @@ export function AppProvider({children}:{children:React.ReactNode}){
  const effectivePreview=adminPreview&&actualIsAdmin;
  const profile=useMemo(()=>{if(!actualProfile)return null;if(!effectivePreview)return actualProfile;return{...actualProfile,is_admin:false}as Profile},[actualProfile,effectivePreview]);
  const locked=tourBurned&&Boolean(session)&&!localBurnAnimation&&!actualIsAdmin;
- return <AppContext.Provider value={{session,profile,loading,refreshProfile,actualIsAdmin,adminPreview:effectivePreview,setAdminPreview}}>{children}<PushBootstrap/><DeviceHealthReporter/><TourBurnHomePortal/><AdminTourBurnPortal/>{locked&&<TourBurn mode="final"/>}</AppContext.Provider>
+ const contextValue={session,profile,loading,refreshProfile,actualIsAdmin,adminPreview:effectivePreview,setAdminPreview};
+
+ // A burned participant gets no application tree at all. This is deliberately
+ // account-based: reinstalling, changing devices or logging in again still
+ // resolves the server-side burn flag before normal app use is restored.
+ if(locked){
+  return <AppContext.Provider value={contextValue}><TourBurn mode="final"/></AppContext.Provider>;
+ }
+
+ return <AppContext.Provider value={contextValue}>{children}<PushBootstrap/><DeviceHealthReporter/><TourBurnHomePortal/><AdminTourBurnPortal/></AppContext.Provider>
 }
 export function useApp(){const ctx=useContext(AppContext);if(!ctx)throw new Error("useApp must be used inside AppProvider");return ctx}
