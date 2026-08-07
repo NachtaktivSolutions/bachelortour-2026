@@ -9,12 +9,17 @@ import { useApp } from "@/components/app-provider";
 import { createClient } from "@/lib/supabase/client";
 import { optimizeImage, validateImageFile } from "@/lib/image-upload";
 import type { ChatMessage } from "@/lib/types";
+import styles from "./chat.module.css";
 
 type ChatSettings = { chat_locked:boolean; pinned_chat_message_id:string|null };
+type Reaction = { message_id:string; user_id:string; emoji:string };
+const REACTIONS=["👍","❤️","😂","🔥","🍺","🌿"];
 
 export default function ChatPage() {
   const { profile } = useApp();
   const [messages,setMessages]=useState<ChatMessage[]>([]);
+  const [reactions,setReactions]=useState<Reaction[]>([]);
+  const [reactionOpen,setReactionOpen]=useState<string|null>(null);
   const [settings,setSettings]=useState<ChatSettings>({chat_locked:false,pinned_chat_message_id:null});
   const [uploading,setUploading]=useState(false);
   const [uploadStatus,setUploadStatus]=useState("");
@@ -36,11 +41,13 @@ export default function ChatPage() {
   const load = useCallback(async (scrollForNew = false) => {
     const container = listRef.current;
     const wasNearBottom = container ? container.scrollHeight - container.scrollTop - container.clientHeight < 120 : true;
-    const [{data},{data:settingsData}] = await Promise.all([
+    const [{data},{data:settingsData},{data:reactionData}] = await Promise.all([
       supabase.from("chat_messages").select("*, profiles(name,avatar_url)").order("created_at").limit(300),
-      supabase.from("event_settings").select("chat_locked,pinned_chat_message_id").eq("id",1).maybeSingle()
+      supabase.from("event_settings").select("chat_locked,pinned_chat_message_id").eq("id",1).maybeSingle(),
+      supabase.from("chat_message_reactions").select("message_id,user_id,emoji")
     ]);
     setMessages((data as ChatMessage[]) ?? []);
+    setReactions((reactionData as Reaction[]) ?? []);
     setSettings({chat_locked:Boolean(settingsData?.chat_locked),pinned_chat_message_id:settingsData?.pinned_chat_message_id??null});
     await markRead();
     window.requestAnimationFrame(() => {
@@ -55,6 +62,7 @@ export default function ChatPage() {
     load(false);
     const channel=supabase.channel("chat")
       .on("postgres_changes",{event:"*",schema:"public",table:"chat_messages"},()=>load(true))
+      .on("postgres_changes",{event:"*",schema:"public",table:"chat_message_reactions"},()=>load(false))
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"event_settings",filter:"id=eq.1"},()=>load(false))
       .subscribe();
     const onVisible=()=>{ if(document.visibilityState==="visible") markRead(); };
@@ -80,10 +88,21 @@ export default function ChatPage() {
       const up=await supabase.storage.from("photos").upload(path,file,{cacheControl:"31536000",contentType:"image/jpeg"});
       if(up.error)throw up.error;
       const url=supabase.storage.from("photos").getPublicUrl(path).data.publicUrl;
-      const {error}=await supabase.from("chat_messages").insert({body:"📷 Foto",image_url:url,sender_id:profile.id});
-      if(error)throw error;
+      const galleryInsert=await supabase.from("photos").insert({image_url:url,uploader_id:profile.id,caption:"Aus dem Gruppenchat"});
+      if(galleryInsert.error)throw galleryInsert.error;
+      const chatInsert=await supabase.from("chat_messages").insert({body:"📷 Foto",image_url:url,sender_id:profile.id});
+      if(chatInsert.error)throw chatInsert.error;
     }catch(error){setStatus(error instanceof Error?error.message:"Foto konnte nicht hochgeladen werden.")}
     finally{setUploading(false);setUploadStatus("");e.target.value=""}
+  }
+
+  async function react(messageId:string,emoji:string){
+    if(!profile)return;
+    const existing=reactions.find(r=>r.message_id===messageId&&r.user_id===profile.id);
+    const result=existing?.emoji===emoji
+      ? await supabase.from("chat_message_reactions").delete().eq("message_id",messageId).eq("user_id",profile.id)
+      : await supabase.from("chat_message_reactions").upsert({message_id:messageId,user_id:profile.id,emoji},{onConflict:"message_id,user_id"});
+    if(result.error)setStatus(result.error.message);else{setReactionOpen(null);await load(false)}
   }
 
   async function removeMessages(ids:string[]){
@@ -138,11 +157,20 @@ export default function ChatPage() {
       <div className="chat-list" ref={listRef}>{messages.map(m=>{
         const own=m.sender_id===profile?.id;
         const isSelected=selected.has(m.id);
+        const messageReactions=reactions.filter(r=>r.message_id===m.id);
+        const grouped=REACTIONS.map(emoji=>({emoji,items:messageReactions.filter(r=>r.emoji===emoji)})).filter(group=>group.items.length);
         return <div key={m.id} className={`message-row ${own?"own":""} ${isSelected?"selected":""}`} onClick={()=>selectionMode&&toggleSelected(m.id)}>
           {selectionMode&&<button type="button" className="message-select" aria-label="Nachricht auswählen">{isSelected?"✓":""}</button>}
           {!own&&<div className="avatar chat-avatar">{m.profiles?.avatar_url?<img src={m.profiles.avatar_url} alt=""/>:<span>{m.profiles?.name?.[0]||"?"}</span>}</div>}
-          <div className={`message ${own?"own":""}`}><strong>{own?"Du":m.profiles?.name}</strong>{m.image_url&&<img className="chat-image" src={m.image_url} alt="Chatfoto" loading="lazy" decoding="async"/>}{m.body&&m.body!=="📷 Foto"&&<p>{m.body}</p>}<small>{new Intl.DateTimeFormat("de-DE",{timeZone:"Europe/Berlin",hour:"2-digit",minute:"2-digit"}).format(new Date(m.created_at))}</small>
-            {profile?.is_admin&&!selectionMode&&<div className="message-admin-actions"><button type="button" title="Anpinnen" onClick={event=>{event.stopPropagation();pinMessage(m.id)}} className={settings.pinned_chat_message_id===m.id?"active":""}><Pin/></button><button type="button" title="Löschen" onClick={event=>{event.stopPropagation();removeMessages([m.id])}}><Trash2/></button></div>}
+          <div className={`${styles.messageWrap} ${own?styles.own:""}`}>
+            <div className={`message ${own?"own":""}`}><strong>{own?"Du":m.profiles?.name}</strong>{m.image_url&&<img className="chat-image" src={m.image_url} alt="Chatfoto" loading="lazy" decoding="async"/>}{m.body&&m.body!=="📷 Foto"&&<p>{m.body}</p>}<small>{new Intl.DateTimeFormat("de-DE",{timeZone:"Europe/Berlin",hour:"2-digit",minute:"2-digit"}).format(new Date(m.created_at))}</small>
+              {profile?.is_admin&&!selectionMode&&<div className="message-admin-actions"><button type="button" title="Anpinnen" onClick={event=>{event.stopPropagation();pinMessage(m.id)}} className={settings.pinned_chat_message_id===m.id?"active":""}><Pin/></button><button type="button" title="Löschen" onClick={event=>{event.stopPropagation();removeMessages([m.id])}}><Trash2/></button></div>}
+            </div>
+            {!selectionMode&&<div className={styles.reactionBar} onClick={event=>event.stopPropagation()}>
+              {grouped.map(group=><button key={group.emoji} type="button" className={`${styles.reactionChip} ${group.items.some(r=>r.user_id===profile?.id)?styles.mine:""}`} onClick={()=>react(m.id,group.emoji)}>{group.emoji}<span>{group.items.length}</span></button>)}
+              <button type="button" className={styles.reactionAdd} aria-label="Reaktion hinzufügen" onClick={()=>setReactionOpen(current=>current===m.id?null:m.id)}><Smile size={15}/></button>
+              {reactionOpen===m.id&&<div className={`${styles.reactionPicker} ${own?styles.own:""}`}>{REACTIONS.map(emoji=><button key={emoji} type="button" onClick={()=>react(m.id,emoji)}>{emoji}</button>)}</div>}
+            </div>}
           </div>
         </div>})}</div>
       {selectionMode&&selected.size>0&&<div className="bulk-chat-actions"><strong>{selected.size} ausgewählt</strong><button onClick={()=>removeMessages(Array.from(selected))}><Trash2/>Auswahl löschen</button></div>}
