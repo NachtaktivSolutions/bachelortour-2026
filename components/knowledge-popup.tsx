@@ -72,6 +72,7 @@ export function KnowledgePopup({items}:{items:KnowledgeItem[]}){
 
   return <>
     <section className="section knowledge-launch-section" id="knowledge">
+      <div className="section-title knowledge-section-title"><Info size={20}/><h2>Wissenswertes</h2></div>
       <button className="knowledge-launch-card" onClick={()=>setOpen(true)}>
         <span className="knowledge-launch-icon"><Info size={22}/></span>
         <span className="knowledge-launch-copy">
