@@ -9,7 +9,7 @@ import "./hotel-room-card.css";
 
 type RoomCredentials={
   room_number:string;
-  room_pin:string;
+  room_pin:string|null;
 };
 
 export function HotelRoomCard({hotelId,hotelName}:{hotelId:string;hotelName:string}){
@@ -42,12 +42,12 @@ export function HotelRoomCard({hotelId,hotelName}:{hotelId:string;hotelName:stri
     const form=new FormData(e.currentTarget);
     const roomNumber=String(form.get("room_number")||"").trim();
     const roomPin=String(form.get("room_pin")||"").trim();
-    if(!roomNumber||!roomPin){setStatus("Bitte Zimmernummer und PIN eintragen.");return}
+    if(!roomNumber){setStatus("Bitte eine Zimmernummer eintragen.");return}
     setBusy(true);setStatus("");
-    const {error}=await supabase.from("hotel_room_credentials").upsert({user_id:profile.id,hotel_id:hotelId,room_number:roomNumber,room_pin:roomPin,updated_at:new Date().toISOString()},{onConflict:"user_id,hotel_id"});
+    const {error}=await supabase.from("hotel_room_credentials").upsert({user_id:profile.id,hotel_id:hotelId,room_number:roomNumber,room_pin:roomPin||null,updated_at:new Date().toISOString()},{onConflict:"user_id,hotel_id"});
     setBusy(false);
     if(error){setStatus(error.message);return}
-    setRoom({room_number:roomNumber,room_pin:roomPin});
+    setRoom({room_number:roomNumber,room_pin:roomPin||null});
     setStatus("Zimmerdaten gespeichert.");
     window.setTimeout(()=>setOpen(false),500);
   }
@@ -61,9 +61,9 @@ export function HotelRoomCard({hotelId,hotelName}:{hotelId:string;hotelName:stri
         <button type="button" className="hotel-room-close" aria-label="Schließen" disabled={busy} onClick={()=>setOpen(false)}><X/></button>
         <span className="eyebrow">NUR FÜR DICH</span>
         <h2>Mein Hotelzimmer</h2>
-        <p><strong>{hotelName}</strong><br/>Speichere hier deine Zimmernummer und den Zimmer-PIN. Diese Daten gehören nur zu diesem Hotel und sind für andere Teilnehmer nicht sichtbar.</p>
+        <p><strong>{hotelName}</strong><br/>Speichere hier deine Zimmernummer und – falls vorhanden – den Zimmer-PIN. Diese Daten gehören nur zu diesem Hotel und sind für andere Teilnehmer nicht sichtbar.</p>
         <label><span>Zimmernummer</span><input name="room_number" defaultValue={room?.room_number||""} placeholder="z. B. 214" autoComplete="off" required/></label>
-        <label><span>Zimmer-PIN</span><input name="room_pin" defaultValue={room?.room_pin||""} placeholder="z. B. 4821" inputMode="numeric" autoComplete="off" required/></label>
+        <label><span>Zimmer-PIN <small>(optional)</small></span><input name="room_pin" defaultValue={room?.room_pin||""} placeholder="z. B. 4821" inputMode="numeric" autoComplete="off"/></label>
         {status&&<div className="hotel-room-status">{status}</div>}
         <button className="hotel-room-save" disabled={busy}><Save/>{busy?"Wird gespeichert …":"Zimmerdaten speichern"}</button>
       </form>
@@ -75,7 +75,7 @@ export function HotelRoomCard({hotelId,hotelName}:{hotelId:string;hotelName:stri
         <span className="hotel-room-icon"><BedDouble/></span>
         <span className="hotel-room-copy">
           <strong>{room?`Zimmer ${room.room_number}`:"Mein Zimmer speichern"}</strong>
-          <small>{room?`${hotelName} · Zimmernummer & PIN anzeigen oder ändern`:`${hotelName} · Zimmernummer und PIN nur für dich hinterlegen`}</small>
+          <small>{room?`${hotelName} · Zimmerdaten anzeigen oder ändern`:`${hotelName} · Zimmernummer und optional PIN nur für dich hinterlegen`}</small>
         </span>
         <span className="hotel-room-edit">{room?<Pencil/>:<KeyRound/>}</span>
       </button>
