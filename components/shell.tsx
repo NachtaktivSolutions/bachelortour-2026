@@ -76,7 +76,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   },[adminMenuOpen]);
 
   const logout = async () => { setAdminPreview(false);await supabase.auth.signOut(); router.replace("/login"); };
-  const closeEaster=()=>{setEasterOpen(false);setEasterAudio(null)};
+  const closeEaster=useCallback(()=>{setEasterOpen(false);setEasterAudio(null)},[]);
   const triggerEaster=(event:React.MouseEvent<HTMLAnchorElement>)=>{
     const now=Date.now();
     easterTaps.current=[...easterTaps.current.filter(time=>now-time<1900),now];
