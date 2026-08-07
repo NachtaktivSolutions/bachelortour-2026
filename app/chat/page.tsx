@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckSquare, ImagePlus, Lock, Pin, Send, Smile, Trash2, Unlock, X } from "lucide-react";
 import { AuthGate } from "@/components/auth-gate";
 import { Shell } from "@/components/shell";
@@ -30,7 +30,7 @@ export default function ChatPage() {
   const [selected,setSelected]=useState<Set<string>>(new Set());
   const [status,setStatus]=useState("");
   const listRef=useRef<HTMLDivElement>(null);
-  const supabase=createClient();
+  const supabase=useMemo(()=>createClient(),[]);
 
   const markRead = useCallback(async () => {
     if (!profile) return;
@@ -41,14 +41,35 @@ export default function ChatPage() {
   const load = useCallback(async (scrollForNew = false) => {
     const container = listRef.current;
     const wasNearBottom = container ? container.scrollHeight - container.scrollTop - container.clientHeight < 120 : true;
-    const [{data},{data:settingsData},{data:reactionData}] = await Promise.all([
-      supabase.from("chat_messages").select("*, profiles(name,avatar_url)").order("created_at").limit(300),
+
+    // Nachrichten sind der Kern des Chats und dürfen nie von optionalen
+    // Zusatzfunktionen wie Reaktionen abhängig sein.
+    const messageResult = await supabase
+      .from("chat_messages")
+      .select("*, profiles(name,avatar_url)")
+      .order("created_at")
+      .limit(300);
+
+    if (messageResult.error) {
+      setStatus(`Chat konnte nicht geladen werden: ${messageResult.error.message}`);
+      return;
+    }
+
+    setMessages((messageResult.data as ChatMessage[]) ?? []);
+
+    // Settings und Reaktionen separat laden. Ein Fehler hier darf den Chat
+    // nicht ausblenden.
+    const [settingsResult,reactionResult] = await Promise.all([
       supabase.from("event_settings").select("chat_locked,pinned_chat_message_id").eq("id",1).maybeSingle(),
       supabase.from("chat_message_reactions").select("message_id,user_id,emoji")
     ]);
-    setMessages((data as ChatMessage[]) ?? []);
-    setReactions((reactionData as Reaction[]) ?? []);
-    setSettings({chat_locked:Boolean(settingsData?.chat_locked),pinned_chat_message_id:settingsData?.pinned_chat_message_id??null});
+
+    if (!settingsResult.error) {
+      const settingsData=settingsResult.data;
+      setSettings({chat_locked:Boolean(settingsData?.chat_locked),pinned_chat_message_id:settingsData?.pinned_chat_message_id??null});
+    }
+    if (!reactionResult.error) setReactions((reactionResult.data as Reaction[]) ?? []);
+
     await markRead();
     window.requestAnimationFrame(() => {
       const current = listRef.current;
@@ -65,16 +86,17 @@ export default function ChatPage() {
       .on("postgres_changes",{event:"*",schema:"public",table:"chat_message_reactions"},()=>load(false))
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"event_settings",filter:"id=eq.1"},()=>load(false))
       .subscribe();
-    const onVisible=()=>{ if(document.visibilityState==="visible") markRead(); };
+    const onVisible=()=>{ if(document.visibilityState==="visible") load(false); };
     document.addEventListener("visibilitychange",onVisible);
     return()=>{document.removeEventListener("visibilitychange",onVisible);supabase.removeChannel(channel)};
-  },[load,markRead,supabase]);
+  },[load,supabase]);
 
   async function send(e:FormEvent<HTMLFormElement>){
     e.preventDefault();const body=text.trim();if(!body||!profile||settings.chat_locked&&!profile.is_admin)return;
     const {error}=await supabase.from("chat_messages").insert({body,sender_id:profile.id});
     if(error){setStatus(error.message);return}
-    setText("");setEmojiOpen(false);window.setTimeout(()=>{const c=listRef.current;if(c)c.scrollTop=c.scrollHeight},50);
+    setText("");setEmojiOpen(false);setStatus("");
+    await load(true);
   }
 
   async function sendImage(e:ChangeEvent<HTMLInputElement>){
@@ -92,6 +114,7 @@ export default function ChatPage() {
       if(galleryInsert.error)throw galleryInsert.error;
       const chatInsert=await supabase.from("chat_messages").insert({body:"📷 Foto",image_url:url,sender_id:profile.id});
       if(chatInsert.error)throw chatInsert.error;
+      await load(true);
     }catch(error){setStatus(error instanceof Error?error.message:"Foto konnte nicht hochgeladen werden.")}
     finally{setUploading(false);setUploadStatus("");e.target.value=""}
   }
