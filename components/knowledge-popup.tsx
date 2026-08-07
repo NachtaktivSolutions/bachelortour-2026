@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { ExternalLink, Info, Navigation, Phone, X, ChevronRight } from "lucide-react";
 import "./knowledge-popup.css";
 
@@ -44,19 +45,8 @@ export function KnowledgePopup({items}:{items:KnowledgeItem[]}){
 
   if(!items.length)return null;
 
-  return <>
-    <section className="section knowledge-launch-section" id="knowledge">
-      <button className="knowledge-launch-card" onClick={()=>setOpen(true)}>
-        <span className="knowledge-launch-icon"><Info size={22}/></span>
-        <span className="knowledge-launch-copy">
-          <strong>Wissenswertes</strong>
-          <small>{items.length} freigeschaltete {items.length===1?"Empfehlung":"Empfehlungen"}{categories.length?` · ${categories.slice(0,3).join(" · ")}`:""}</small>
-        </span>
-        <span className="knowledge-launch-more">Ansehen <ChevronRight size={18}/></span>
-      </button>
-    </section>
-
-    {open&&<div className="knowledge-overlay" role="dialog" aria-modal="true" aria-label="Wissenswertes">
+  const overlay=open&&typeof document!=="undefined"?createPortal(
+    <div className="knowledge-overlay" role="dialog" aria-modal="true" aria-label="Wissenswertes">
       <button className="knowledge-overlay-backdrop" aria-label="Schließen" onClick={()=>setOpen(false)}/>
       <div className="knowledge-sheet">
         <div className="knowledge-sheet-handle"/>
@@ -78,6 +68,19 @@ export function KnowledgePopup({items}:{items:KnowledgeItem[]}){
           </article>)}
         </div>
       </div>
-    </div>}
+    </div>,document.body):null;
+
+  return <>
+    <section className="section knowledge-launch-section" id="knowledge">
+      <button className="knowledge-launch-card" onClick={()=>setOpen(true)}>
+        <span className="knowledge-launch-icon"><Info size={22}/></span>
+        <span className="knowledge-launch-copy">
+          <strong>Wissenswertes</strong>
+          <small>{items.length} freigeschaltete {items.length===1?"Empfehlung":"Empfehlungen"}{categories.length?` · ${categories.slice(0,3).join(" · ")}`:""}</small>
+        </span>
+        <span className="knowledge-launch-more">Ansehen <ChevronRight size={18}/></span>
+      </button>
+    </section>
+    {overlay}
   </>;
 }
