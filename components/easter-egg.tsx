@@ -9,7 +9,10 @@ type EasterEggProps={open:boolean;onClose:()=>void;audio?:HTMLAudioElement|null}
 export function EasterEgg({open,onClose,audio}:EasterEggProps){
   const fallbackAudioRef=useRef<HTMLAudioElement|null>(null);
   const videoRef=useRef<HTMLVideoElement|null>(null);
+  const onCloseRef=useRef(onClose);
   const [remaining,setRemaining]=useState(20);
+
+  useEffect(()=>{onCloseRef.current=onClose},[onClose]);
 
   useEffect(()=>{
     if(!open)return;
@@ -26,7 +29,7 @@ export function EasterEgg({open,onClose,audio}:EasterEggProps){
 
     const video=videoRef.current;
     if(video){
-      video.currentTime=0;
+      try{video.currentTime=soundtrack.currentTime||0}catch{}
       video.muted=true;
       video.volume=0;
       video.play().catch(()=>{});
@@ -35,12 +38,13 @@ export function EasterEgg({open,onClose,audio}:EasterEggProps){
     const syncToSoundtrack=()=>{
       if(!video||soundtrack.paused)return;
       const drift=Math.abs(video.currentTime-soundtrack.currentTime);
-      if(drift>.18)video.currentTime=soundtrack.currentTime;
+      if(drift>.25){try{video.currentTime=soundtrack.currentTime}catch{}}
+      if(video.paused)video.play().catch(()=>{});
     };
-    const syncTimer=window.setInterval(syncToSoundtrack,500);
-    const timer=window.setTimeout(onClose,20000);
+    const syncTimer=window.setInterval(syncToSoundtrack,750);
+    const timer=window.setTimeout(()=>onCloseRef.current(),20000);
     const counter=window.setInterval(()=>setRemaining(value=>Math.max(0,value-1)),1000);
-    const key=(event:KeyboardEvent)=>{if(event.key==="Escape")onClose()};
+    const key=(event:KeyboardEvent)=>{if(event.key==="Escape")onCloseRef.current()};
     document.body.classList.add("easter-egg-open");
     document.addEventListener("keydown",key);
 
@@ -55,7 +59,7 @@ export function EasterEgg({open,onClose,audio}:EasterEggProps){
       fallbackAudioRef.current=null;
       if(video){video.pause();try{video.currentTime=0}catch{}}
     };
-  },[open,onClose,audio]);
+  },[open,audio]);
 
   if(!open||typeof document==="undefined")return null;
 
@@ -65,7 +69,7 @@ export function EasterEgg({open,onClose,audio}:EasterEggProps){
       <div className="easter-video-vignette"/>
       <div className="easter-smoke smoke-a"/><div className="easter-smoke smoke-b"/>
       <div className="easter-embers" aria-hidden="true">{Array.from({length:24},(_,i)=><i key={i} style={{left:`${(i*37)%100}%`,animationDelay:`${(i%8)*.22}s`,animationDuration:`${3.6+(i%5)*.7}s`}}/>)}</div>
-      <button className="easter-close" onClick={onClose} aria-label="Schließen"><X/></button>
+      <button className="easter-close" onClick={()=>onCloseRef.current()} aria-label="Schließen"><X/></button>
       <div className="easter-footer"><div className="easter-progress"><span/></div><strong>0:{String(remaining).padStart(2,"0")}</strong></div>
     </div>,
     document.body
