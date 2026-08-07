@@ -82,14 +82,23 @@ export default function PlacesAdminPage(){
   }
 
   async function toggle(table:"hotels"|"knowledge_items",id:string,current:boolean){
-    const next=!current;const {error}=await supabase.from(table).update({is_visible:next,updated_at:new Date().toISOString()}).eq("id",id);
+    const next=!current;
+    const item=table==="hotels"?hotels.find(x=>x.id===id):knowledge.find(x=>x.id===id);
+    const label=table==="hotels"?(item as Hotel|undefined)?.name:(item as Knowledge|undefined)?.title;
+    const question=next
+      ? `„${label||"Dieser Inhalt"}“ jetzt für alle Teilnehmer sichtbar schalten?`
+      : `„${label||"Dieser Inhalt"}“ wieder vor den Teilnehmern verbergen?`;
+    if(!window.confirm(question))return;
+
+    const {error}=await supabase.from(table).update({is_visible:next,updated_at:new Date().toISOString()}).eq("id",id);
     if(error){setStatus(error.message);return}
+
     let message=next?"Inhalt ist jetzt sichtbar.":"Inhalt wurde verborgen.";
-    if(next&&confirm("Soll dazu eine Push-Nachricht an alle Teilnehmer gesendet werden?")){
+    if(next&&window.confirm("Soll dazu jetzt auch eine Push-Nachricht an alle Teilnehmer gesendet werden?")){
       try{
-        if(table==="hotels"){const item=hotels.find(x=>x.id===id);if(item){const sent=await sendTargetPush(`Hotel bekanntgegeben: ${item.name}`,item.description||item.address,`/#hotel-${item.id}`,`hotel-${item.id}`);message+=` Push an ${sent} Geräte versendet.`}}
-        else{const item=knowledge.find(x=>x.id===id);if(item){const sent=await sendTargetPush(`Neue Information: ${item.title}`,item.description||item.address||"Es gibt neue Tour-Informationen.",`/#knowledge-${item.id}`,`knowledge-${item.id}`);message+=` Push an ${sent} Geräte versendet.`}}
-      }catch(error){message+=` Push fehlgeschlagen: ${error instanceof Error?error.message:"Unbekannter Fehler"}`}
+        if(table==="hotels"){const hotel=hotels.find(x=>x.id===id);if(hotel){const sent=await sendTargetPush(`Hotel bekanntgegeben: ${hotel.name}`,hotel.description||hotel.address,`/#hotel-${hotel.id}`,`hotel-${hotel.id}`);message+=` Push an ${sent} Geräte versendet.`}}
+        else{const knowledgeItem=knowledge.find(x=>x.id===id);if(knowledgeItem){const sent=await sendTargetPush(`Neue Information: ${knowledgeItem.title}`,knowledgeItem.description||knowledgeItem.address||"Es gibt neue Tour-Informationen.",`/#knowledge-${knowledgeItem.id}`,`knowledge-${knowledgeItem.id}`);message+=` Push an ${sent} Geräte versendet.`}}
+      }catch(error){message+=` Sichtbar, aber Push fehlgeschlagen: ${error instanceof Error?error.message:"Unbekannter Fehler"}`}
     }
     setStatus(message);await load()
   }
