@@ -8,6 +8,7 @@ import { PushBootstrap } from "./push-settings";
 import { DeviceHealthReporter } from "./device-health-reporter";
 import { TourBurn } from "./tour-burn";
 import { TourBurnHomePortal } from "./tour-burn-home-portal";
+import { AdminTourBurnPortal } from "./admin-tour-burn-portal";
 
 const ADMIN_PREVIEW_KEY="firestarter-admin-participant-preview";
 
@@ -35,6 +36,6 @@ export function AppProvider({children}:{children:React.ReactNode}){
  const effectivePreview=adminPreview&&actualIsAdmin;
  const profile=useMemo(()=>{if(!actualProfile)return null;if(!effectivePreview)return actualProfile;return{...actualProfile,is_admin:false}as Profile},[actualProfile,effectivePreview]);
  const locked=tourBurned&&Boolean(session)&&!localBurnAnimation&&(!actualIsAdmin||effectivePreview);
- return <AppContext.Provider value={{session,profile,loading,refreshProfile,actualIsAdmin,adminPreview:effectivePreview,setAdminPreview}}>{children}<PushBootstrap/><DeviceHealthReporter/><TourBurnHomePortal/>{locked&&<TourBurn mode="final" preview={effectivePreview} onExitPreview={effectivePreview?()=>setAdminPreview(false):undefined}/>}</AppContext.Provider>
+ return <AppContext.Provider value={{session,profile,loading,refreshProfile,actualIsAdmin,adminPreview:effectivePreview,setAdminPreview}}>{children}<PushBootstrap/><DeviceHealthReporter/><TourBurnHomePortal/><AdminTourBurnPortal/>{locked&&<TourBurn mode="final" preview={effectivePreview} onExitPreview={effectivePreview?()=>setAdminPreview(false):undefined}/>}</AppContext.Provider>
 }
 export function useApp(){const ctx=useContext(AppContext);if(!ctx)throw new Error("useApp must be used inside AppProvider");return ctx}
