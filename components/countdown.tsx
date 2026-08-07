@@ -51,6 +51,11 @@ function TourRunning() {
 export function Countdown({ startsAt }: { startsAt?: string | null }) {
   const target = useMemo(() => getTarget(startsAt), [startsAt]);
   const [left, setLeft] = useState(() => diff(target));
+  const [previewRunning, setPreviewRunning] = useState(false);
+
+  useEffect(() => {
+    setPreviewRunning(new URLSearchParams(window.location.search).get("previewBus") === "1");
+  }, []);
 
   useEffect(() => {
     const update = () => setLeft(diff(target));
@@ -59,7 +64,7 @@ export function Countdown({ startsAt }: { startsAt?: string | null }) {
     return () => window.clearInterval(timer);
   }, [target]);
 
-  if (left.ended) return <TourRunning />;
+  if (left.ended || previewRunning) return <TourRunning />;
 
   return (
     <div className="countdown countdown-compact" aria-label={`${left.days} Tage, ${left.hours} Stunden und ${left.minutes} Minuten`}>
