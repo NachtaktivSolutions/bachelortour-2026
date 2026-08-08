@@ -67,9 +67,17 @@ export async function POST(req:NextRequest){
     if(action==="toggle"){
       if(!ctx.profile.is_admin)return NextResponse.json({error:"Nur Admins dürfen Bachelorando aktivieren oder deaktivieren."},{status:403});
       const enabled=Boolean(body.enabled);
+      const notifyAll=enabled&&Boolean(body.notifyAll);
       const {error}=await ctx.admin.from("app_settings").update({bachelorando_enabled:enabled,updated_at:new Date().toISOString(),updated_by:ctx.user.id}).eq("id",1);
       if(error)throw error;
-      return NextResponse.json({ok:true,enabled});
+      let sent:number|undefined;
+      if(notifyAll){
+        const {data:subscriptions,error:subscriptionError}=await ctx.admin.from("push_subscriptions").select("user_id");
+        if(subscriptionError)throw subscriptionError;
+        const targetIds=[...new Set((subscriptions??[]).map((row:any)=>String(row.user_id)).filter(Boolean))];
+        sent=await sendPush(ctx.admin,targetIds,{title:"🍺 Bachelorando ist wieder geöffnet!",body:"Bestellungen sind wieder möglich. Durst? Dann los. 😄",url:"/bachelorando",tag:`bachelorando-open-${Date.now()}`});
+      }
+      return NextResponse.json({ok:true,enabled,notifyAll,sent});
     }
 
     const enabled=await bachelorandoEnabled(ctx.admin);
