@@ -89,7 +89,7 @@ export function WeatherCard({ latitude, longitude }: { latitude: number; longitu
 
       {easterOpen&&<div role="dialog" aria-modal="true" aria-label="Wetter Easter Egg" style={{position:"fixed",inset:0,zIndex:10000,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",background:"rgba(0,0,0,.86)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)"}}>
         <div style={{position:"relative",width:"min(92vw,760px)",maxHeight:"88dvh",borderRadius:"28px",overflow:"hidden",border:"1px solid rgba(255,255,255,.14)",boxShadow:"0 24px 90px rgba(0,0,0,.72)",background:"#111"}}>
-          <img src="/weather-easter-egg.jpg" alt="Bus an einer roten Ampel auf einer weiten Wiese mit Hasen" style={{display:"block",width:"100%",maxHeight:"88dvh",objectFit:"cover"}}/>
+          <img src="/weather-easter-egg.svg" alt="Bus an einer roten Ampel auf einer weiten Wiese mit Hasen" style={{display:"block",width:"100%",maxHeight:"88dvh",objectFit:"cover"}}/>
           <button type="button" aria-label="Easter Egg schließen" onClick={()=>setEasterOpen(false)} style={{position:"absolute",top:"14px",right:"14px",width:"48px",height:"48px",display:"grid",placeItems:"center",borderRadius:"999px",border:"1px solid rgba(255,255,255,.16)",background:"rgba(8,8,8,.88)",color:"white",boxShadow:"0 8px 26px rgba(0,0,0,.4)",cursor:"pointer"}}><X size={28}/></button>
         </div>
       </div>}
