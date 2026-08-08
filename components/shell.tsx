@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Home, Map, MessageCircle, Images, Users, Shield, LogOut, CalendarCog, MapPinned, Luggage, ListChecks, LayoutDashboard, ChevronDown, LifeBuoy, BellRing, Volume2, Eye, EyeOff, Smartphone, Sparkles, Newspaper, Beer } from "lucide-react";
+import { Home, Map, MessageCircle, Images, Users, Shield, LogOut, CalendarCog, MapPinned, Luggage, ListChecks, LayoutDashboard, ChevronDown, LifeBuoy, BellRing, Volume2, Eye, EyeOff, Smartphone, Sparkles, Newspaper, Beer, X } from "lucide-react";
 import { useApp } from "./app-provider";
 import { createClient } from "@/lib/supabase/client";
 import { PwaInstallPrompt } from "./pwa-install-prompt";
@@ -31,6 +31,8 @@ const adminLinks = [
   { href: "/admin/tour-tools", label: "Notfall & Check-ins", description: "Notfallkontakte und Anwesenheit", icon: LifeBuoy }
 ];
 
+type PushOverlayMessage={title:string;body:string};
+
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -40,6 +42,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [adminMenuOpen,setAdminMenuOpen]=useState(false);
   const [easterOpen,setEasterOpen]=useState(false);
   const [easterAudio,setEasterAudio]=useState<HTMLAudioElement|null>(null);
+  const [pushOverlay,setPushOverlay]=useState<PushOverlayMessage|null>(null);
   const easterTaps=useRef<number[]>([]);
   const adminMenuRef=useRef<HTMLDivElement>(null);
   const supabase = useMemo(()=>createClient(),[]);
@@ -67,6 +70,21 @@ export function Shell({ children }: { children: React.ReactNode }) {
     return () => { window.removeEventListener("chat-read", onRead); supabase.removeChannel(channel); };
   }, [loadUnread,loadPacking,profile?.id,supabase]);
 
+  useEffect(()=>{
+    const params=new URLSearchParams(window.location.search);
+    if(params.get("pushOverlay")!=="1")return;
+    const title=params.get("pushTitle")?.trim()||"Firestarter 2026";
+    const body=params.get("pushBody")?.trim()||"Es gibt Neuigkeiten.";
+    setPushOverlay({title,body});
+  },[pathname]);
+
+  useEffect(()=>{
+    if(!pushOverlay)return;
+    const previous=document.body.style.overflow;
+    document.body.style.overflow="hidden";
+    return()=>{document.body.style.overflow=previous};
+  },[pushOverlay]);
+
   useEffect(()=>{setAdminMenuOpen(false)},[pathname]);
   useEffect(()=>{
     if(!adminMenuOpen)return;
@@ -78,6 +96,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   const logout = async () => { setAdminPreview(false);await supabase.auth.signOut(); router.replace("/login"); };
   const closeEaster=useCallback(()=>{setEasterOpen(false);setEasterAudio(null)},[]);
+  const closePushOverlay=useCallback(()=>{
+    setPushOverlay(null);
+    const url=new URL(window.location.href);
+    url.searchParams.delete("pushOverlay");
+    url.searchParams.delete("pushTitle");
+    url.searchParams.delete("pushBody");
+    window.history.replaceState({},"",`${url.pathname}${url.search}${url.hash}`);
+  },[]);
   const triggerEaster=(event:React.MouseEvent<HTMLAnchorElement>)=>{
     const now=Date.now();
     easterTaps.current=[...easterTaps.current.filter(time=>now-time<1900),now];
@@ -116,5 +142,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
     <nav className="bottom-nav" style={{gridTemplateColumns:`repeat(${navItems.length},1fr)`}}>{navItems.map(({href,label,icon:Icon})=>{const active=href==="/"?pathname==="/":pathname.startsWith(href);const isChat=href==="/chat";return <Link key={href} href={href} className={active?"active":""}><span className="nav-icon-wrap"><Icon size={22}/>{isChat&&unreadChat>0&&<span className="chat-unread-badge">{unreadChat>99?"99+":unreadChat}</span>}</span><span>{label}</span></Link>})}</nav>
     <PwaInstallPrompt/>
     <EasterEgg open={easterOpen} audio={easterAudio} onClose={closeEaster}/>
+    {pushOverlay&&<div role="dialog" aria-modal="true" aria-label="Push-Nachricht" style={{position:"fixed",inset:0,zIndex:12000,display:"grid",placeItems:"center",padding:"22px",background:"rgba(0,0,0,.84)",backdropFilter:"blur(10px)",WebkitBackdropFilter:"blur(10px)"}}>
+      <section style={{position:"relative",width:"min(92vw,560px)",maxHeight:"82dvh",overflow:"auto",borderRadius:"28px",border:"1px solid rgba(255,122,0,.42)",background:"linear-gradient(180deg,#1b1b1b,#111)",boxShadow:"0 28px 90px rgba(0,0,0,.72)",padding:"30px 24px 26px"}}>
+        <button type="button" aria-label="Nachricht schließen" onClick={closePushOverlay} style={{position:"absolute",top:"14px",right:"14px",width:"46px",height:"46px",display:"grid",placeItems:"center",borderRadius:"999px",border:"1px solid rgba(255,255,255,.15)",background:"rgba(5,5,5,.9)",color:"#fff",cursor:"pointer"}}><X size={27}/></button>
+        <div style={{width:"52px",height:"52px",display:"grid",placeItems:"center",borderRadius:"16px",background:"rgba(255,112,0,.16)",color:"#ff7300",marginBottom:"18px"}}><BellRing size={28}/></div>
+        <span className="eyebrow">NACHRICHT VOM GREMIUM</span>
+        <h2 style={{fontSize:"clamp(25px,6vw,34px)",lineHeight:1.08,margin:"8px 58px 18px 0",color:"#fff"}}>{pushOverlay.title}</h2>
+        <div style={{fontSize:"18px",lineHeight:1.55,color:"rgba(255,255,255,.88)",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{pushOverlay.body}</div>
+      </section>
+    </div>}
   </div>;
 }
