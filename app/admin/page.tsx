@@ -13,6 +13,11 @@ import type { Profile, EventSettings, Photo } from "@/lib/types";
 type ScheduledJob = { id:string; job_type:"news"|"program"|"push"; payload:Record<string,any>; scheduled_for:string; status:string; error:string|null };
 type CropTarget = { file:File; kind:"hero"|"avatar" } | null;
 
+function manualPushOverlayUrl(title:string,body:string){
+  const params=new URLSearchParams({pushOverlay:"1",pushTitle:title,pushBody:body});
+  return `/?${params.toString()}`;
+}
+
 export default function AdminPage(){
   const {session}=useApp();
   const supabase=createClient();
@@ -45,8 +50,8 @@ export default function AdminPage(){
   const nonAdmins=useMemo(()=>members.filter(m=>!m.is_admin&&m.name.toLowerCase().includes(adminSearch.toLowerCase())),[members,adminSearch]);
   const centralJobs=jobs.filter(j=>j.status==="pending"&&j.job_type!=="news");
 
-  async function sendPushPayload(title:string,body:string){
-    const res=await fetch("/api/push/send",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session?.access_token}`},body:JSON.stringify({title,body,url:"/"})});
+  async function sendPushPayload(title:string,body:string,url="/"){
+    const res=await fetch("/api/push/send",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session?.access_token}`},body:JSON.stringify({title,body,url})});
     const json=await res.json();if(!res.ok)throw new Error(json.error||"Push konnte nicht versendet werden.");return json;
   }
 
@@ -64,7 +69,8 @@ export default function AdminPage(){
   async function sendPush(e:FormEvent<HTMLFormElement>){
     e.preventDefault();const form=e.currentTarget;const f=new FormData(form);setStatus("");
     const title=String(f.get("title")).trim(),body=String(f.get("body")).trim(),when=String(f.get("scheduled_for"));
-    try{if(when){await schedule("push",{title,body,url:"/"},when);setStatus("Push wurde vorbereitet.")}else{const json=await sendPushPayload(title,body);setStatus(`Push versendet (${json.sent??0}).`)}form.reset();await load()}catch(error){setStatus(error instanceof Error?error.message:"Fehler")}
+    const url=manualPushOverlayUrl(title,body);
+    try{if(when){await schedule("push",{title,body,url},when);setStatus("Push wurde vorbereitet. Beim Antippen öffnet sie sich später als Nachricht in der App.")}else{const json=await sendPushPayload(title,body,url);setStatus(`Push versendet (${json.sent??0}). Beim Antippen öffnet sie sich als Nachricht in der App.`)}form.reset();await load()}catch(error){setStatus(error instanceof Error?error.message:"Fehler")}
   }
 
   async function saveEvent(e:FormEvent<HTMLFormElement>){
@@ -90,7 +96,7 @@ export default function AdminPage(){
     <div className="page-heading"><span className="eyebrow">KOMMANDOZENTRALE</span><h1>Admin-Bereich</h1><p>Push-Nachrichten, Tourdaten und Mitglieder verwalten. Neuigkeiten und Programmpunkte findest du jeweils in ihrer eigenen Rubrik.</p></div>
     {status&&<div className="status">{status}</div>}
     <div className="admin-grid">
-      <form className="admin-card" onSubmit={sendPush}><BellRing/><h2>Push-Nachricht</h2><input name="title" placeholder="Titel" required/><textarea name="body" placeholder="Push-Nachricht" required/><label><Clock3/> Optional senden am<input name="scheduled_for" type="datetime-local"/></label><button className="primary-button"><Send/>Direkt senden oder planen</button></form>
+      <form className="admin-card" onSubmit={sendPush}><BellRing/><h2>Push-Nachricht</h2><input name="title" placeholder="Titel" required/><textarea name="body" placeholder="Push-Nachricht" required/><small>Beim Antippen der Push öffnet sich die komplette Nachricht als gut lesbares Overlay in der App.</small><label><Clock3/> Optional senden am<input name="scheduled_for" type="datetime-local"/></label><button className="primary-button"><Send/>Direkt senden oder planen</button></form>
       <form className="admin-card" onSubmit={saveEvent}><Settings2/><h2>Tourdaten</h2>{heroPreview&&<img className="admin-hero-preview" src={heroPreview} alt="Titelbild"/>}<label className="admin-image-upload"><ImagePlus/>Titelbild auswählen und zuschneiden<input type="file" accept="image/*" onChange={(e:ChangeEvent<HTMLInputElement>)=>{const file=e.target.files?.[0];if(file)setCropTarget({file,kind:"hero"});e.target.value=""}}/></label><input name="title" defaultValue={event?.title||"Bachelortour 2026"} required/><input name="subtitle" defaultValue={event?.subtitle||""} placeholder="Untertitel"/><textarea name="description" defaultValue={event?.description||""}/><label>Tourstart (deutsche Zeit)<input name="starts_at" type="datetime-local" defaultValue={isoToBerlinLocalInput(event?.starts_at)} required/></label><input name="spotify_url" defaultValue={event?.spotify_url||""} placeholder="Spotify-Link"/><div className="two-cols"><input name="weather_latitude" type="number" step="any" defaultValue={event?.weather_latitude||48.6778281}/><input name="weather_longitude" type="number" step="any" defaultValue={event?.weather_longitude||9.21833}/></div><button className="primary-button">Tourdaten speichern</button></form>
 
       <section className="admin-card admin-wide"><div className="admin-card-heading"><div><Clock3/><h2>Vorbereitete Inhalte</h2></div></div>{centralJobs.map(j=><div className="admin-content-row" key={j.id}><div><strong>{j.payload.title||j.job_type}</strong><small>{j.job_type} · {formatBerlinDateTime(j.scheduled_for)}</small></div><button className="danger-button" onClick={()=>remove("scheduled_jobs",j.id,"Planung")}><Trash2/>Löschen</button></div>)}{centralJobs.length===0&&<p>Keine vorbereiteten Inhalte.</p>}</section>
