@@ -29,7 +29,7 @@ const starters=[
 ];
 
 function greeting(firstName:string):Message{
-  return{role:"assistant",content:`👋 Hi${firstName?` ${firstName}`:""}! Ich begleite euch durch die Tour. Frag mich nach eurem Programm, dem Hotel oder nach Tipps in deiner Umgebung.`};
+  return{role:"assistant",content:`👋 Hi${firstName?` ${firstName}`:""}! Ich bin die Dreckszauberfotze und begleite euch durch die Tour. Frag mich nach eurem Programm, dem Hotel, Tipps in deiner Umgebung oder einfach nach irgendeinem anderen Quatsch.`};
 }
 
 export default function AiGuidePage(){
@@ -109,7 +109,7 @@ export default function AiGuidePage(){
     <div className="ai-guide-page">
       <header className="ai-guide-intro">
         <span className="ai-guide-orb"><Sparkles/></span>
-        <div><span className="eyebrow">DEIN TOURBEGLEITER</span><h1>Was kann ich für dich tun?</h1><p>Programm, Hotel, Essen, Bars oder schnelle Hilfe unterwegs.</p></div>
+        <div><span className="eyebrow">DEIN TOURBEGLEITER</span><h1>Dreckszauberfotze</h1><p>Die Dreckszauberfotze kennt euer freigegebenes Programm, hilft unterwegs und beantwortet auch normalen Quatsch.</p></div>
         {messages.length>1&&<button type="button" onClick={clearChat} disabled={busy} aria-label="Chat leeren" title="Chat leeren" style={{marginLeft:"auto",alignSelf:"flex-start",width:42,height:42,padding:10,borderRadius:999,border:"1px solid #3a3a3a",background:"#1b1b1b",color:"#aaa",display:"grid",placeItems:"center",flex:"0 0 auto"}}><Trash2/></button>}
       </header>
 
@@ -125,7 +125,7 @@ export default function AiGuidePage(){
       </section>
 
       {error&&<div className="error">{error}</div>}
-      <form className="ai-composer" onSubmit={submit}><textarea value={question} onChange={event=>setQuestion(event.target.value)} maxLength={700} rows={1} placeholder="Frag mich irgendetwas …"/><button type="submit" disabled={busy||!question.trim()} aria-label="Frage senden"><Send/></button></form>
+      <form className="ai-composer" onSubmit={submit}><textarea value={question} onChange={event=>setQuestion(event.target.value)} maxLength={700} rows={1} placeholder="Frag die Dreckszauberfotze …"/><button type="submit" disabled={busy||!question.trim()} aria-label="Frage senden"><Send/></button></form>
     </div>
   </Shell></AuthGate>
 }
