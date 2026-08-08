@@ -34,8 +34,6 @@ export async function POST(req:NextRequest){
   const location=validLocation(body.location)?body.location!:null;
   const history=(body.history||[]).filter(m=>(m.role==="user"||m.role==="assistant")&&typeof m.content==="string").slice(-8).map(m=>({role:m.role,content:m.content.slice(0,1200)}));
 
-  // Eindeutige Tourfragen zuerst aus ausschließlich freigegebenen Daten beantworten.
-  // So kann die KI niemals durch allgemeines Weltwissen verborgene Tourinhalte erraten.
   const deterministic=answerFromVisibleTourData(question,context,history);
   if(deterministic){
     await logUsage(auth.supabase,auth.userId,question.length);
@@ -49,8 +47,6 @@ export async function POST(req:NextRequest){
     return NextResponse.json({...personAnswer,remaining:Math.max(0,MAX_QUESTIONS_PER_HOUR-count-1)});
   }
 
-  // Lokale Suche nur bei echter Suchabsicht. Ein Wort wie „Kloster“ darf z.B.
-  // niemals wegen des Teilstrings „Klo“ eine Toilettensuche auslösen.
   const nearby=asksForNearby(question);
   if(nearby&&!location)return NextResponse.json({answer:"Dafür brauch ich kurz deinen Standort – sonst such ich dir am Ende eine Apotheke in Buxtehude raus. 😄 Tippe auf „Standort verwenden“ oder nenn mir einen Ort.",actions:[],needsLocation:true,remaining:Math.max(0,MAX_QUESTIONS_PER_HOUR-count)});
   const places=location&&nearby?await searchNearbyPlaces(question,location):[];
@@ -112,7 +108,7 @@ ORTE_IN_DER_NAEHE=${JSON.stringify(places)}`;
   await logUsage(auth.supabase,auth.userId,question.length);
   const modelAnswer=extractOutputText(payload);
   const fallbackAnswer=places.length?answerFromNearbyPlaces(question,places):"Da ist mir gerade die schlaue Antwort zwischen zwei Synapsen runtergefallen. Frag’s nochmal kurz anders. 😄";
-  return NextResponse.json({answer:sanitizeGuideText(modelAnswer||fallbackAnswer),actions:buildActions(question,context,places),needsLocation:false,remaining:Math.max(0,MAX_QUESTIONS_PER_HOUR-count-1)});
+  return NextResponse.json({answer:sanitizeGuideText(modelAnswer||fallbackAnswer),actions:nearby?buildActions(question,context,places):[],needsLocation:false,remaining:Math.max(0,MAX_QUESTIONS_PER_HOUR-count-1)});
 }
 
 async function authorize(req:NextRequest){
