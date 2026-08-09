@@ -15,7 +15,7 @@ export function TourBurnControl(){
   useEffect(()=>{void load();const channel=supabase.channel("tour-burn-control").on("postgres_changes",{event:"UPDATE",schema:"public",table:"app_settings",filter:"id=eq.1"},()=>void load()).subscribe();return()=>{void supabase.removeChannel(channel)}},[load,supabase]);
   async function burn(){
     if(!session?.access_token||profile?.is_admin)return;
-    if(!confirm("Wirklich deine Tour verbrennen? Danach kannst DU nicht mehr auf die App-Inhalte zugreifen. Andere Teilnehmer sind davon nicht betroffen."))return;
+    if(!confirm("Willst du deine Tour wirklich verbrennen?"))return;
     setBusy(true);setStatus("");window.dispatchEvent(new Event("tour-burn-animation-start"));
     try{
       const r=await fetch("/api/tour-burn",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({action:"burn"})});
