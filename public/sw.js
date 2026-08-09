@@ -1,4 +1,4 @@
-const CACHE_NAME="firestarter-v29";
+const CACHE_NAME="firestarter-v30";
 const OFFLINE_ROUTES=["/","/program","/packing-list","/tour-tools","/members","/map"];
 
 self.addEventListener("install",event=>{
