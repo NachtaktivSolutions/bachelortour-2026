@@ -1,4 +1,4 @@
-const CACHE_NAME="firestarter-v30";
+const CACHE_NAME="firestarter-v31";
 const OFFLINE_ROUTES=["/","/program","/packing-list","/tour-tools","/members","/map"];
 
 self.addEventListener("install",event=>{
@@ -7,8 +7,12 @@ self.addEventListener("install",event=>{
 });
 
 self.addEventListener("activate",event=>{
-  event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE_NAME).map(key=>caches.delete(key)))));
-  self.clients.claim();
+  event.waitUntil((async()=>{
+    const keys=await caches.keys();
+    await Promise.all(keys.map(key=>caches.delete(key)));
+    await caches.open(CACHE_NAME);
+    await self.clients.claim();
+  })());
 });
 
 self.addEventListener("fetch",event=>{
@@ -18,11 +22,19 @@ self.addEventListener("fetch",event=>{
   if(url.origin!==self.location.origin)return;
 
   if(request.mode==="navigate"){
-    event.respondWith(fetch(request).then(response=>{
+    event.respondWith(fetch(request,{cache:"no-store"}).then(response=>{
       const copy=response.clone();
       caches.open(CACHE_NAME).then(cache=>cache.put(request,copy));
       return response;
     }).catch(async()=>await caches.match(request)||await caches.match(url.pathname)||await caches.match("/")||Response.error()));
+    return;
+  }
+
+  if(url.pathname.startsWith("/_next/static/")||/\.(css|js)$/i.test(url.pathname)){
+    event.respondWith(fetch(request,{cache:"no-store"}).then(response=>{
+      if(response.ok){const copy=response.clone();caches.open(CACHE_NAME).then(cache=>cache.put(request,copy));}
+      return response;
+    }).catch(async()=>await caches.match(request)||Response.error()));
     return;
   }
 
@@ -35,14 +47,6 @@ self.addEventListener("fetch",event=>{
       if(cached){event.waitUntil(refresh);return cached;}
       return refresh;
     }));
-    return;
-  }
-
-  if(url.pathname.startsWith("/_next/static/")||/\.(css|js)$/i.test(url.pathname)){
-    event.respondWith(caches.match(request).then(cached=>cached||fetch(request).then(response=>{
-      if(response.ok){const copy=response.clone();caches.open(CACHE_NAME).then(cache=>cache.put(request,copy));}
-      return response;
-    })));
   }
 });
 
