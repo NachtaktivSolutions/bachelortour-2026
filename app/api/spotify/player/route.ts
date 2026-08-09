@@ -6,17 +6,48 @@ function bearer(request:NextRequest){return request.headers.get("authorization")
 export async function GET(request:NextRequest){
   try{
     const {sb,profile}=await requireUser(bearer(request));
-    const currentRes=await spotifyFetch(sb,"/me/player/currently-playing");
+
+    // Use the full playback-state endpoint instead of currently-playing.
+    // It is the authoritative source for active device + is_playing and is
+    // more reliable for Spotify Connect devices (especially iPad/tablet).
+    const stateRes=await spotifyFetch(sb,"/me/player?additional_types=track,episode");
     let current=null;
-    if(currentRes.status!==204&&currentRes.ok){const data=await currentRes.json() as any;current=data?.item?{id:data.item.id,uri:data.item.uri,title:data.item.name,artist:(data.item.artists??[]).map((a:any)=>a.name).join(", "),image:data.item.album?.images?.[1]?.url??data.item.album?.images?.[0]?.url??null,progressMs:data.progress_ms??0,durationMs:data.item.duration_ms??0,isPlaying:Boolean(data.is_playing),device:data.device?{id:data.device.id,name:data.device.name}:null}:null}
+    if(stateRes.status!==204&&stateRes.ok){
+      const data=await stateRes.json() as any;
+      const item=data?.item;
+      if(item){
+        const isTrack=item.type==="track";
+        current={
+          id:item.id,
+          uri:item.uri,
+          title:item.name,
+          artist:isTrack?(item.artists??[]).map((a:any)=>a.name).join(", "):(item.show?.name??"Spotify"),
+          image:isTrack?(item.album?.images?.[1]?.url??item.album?.images?.[0]?.url??null):(item.images?.[1]?.url??item.images?.[0]?.url??null),
+          progressMs:data.progress_ms??0,
+          durationMs:item.duration_ms??0,
+          isPlaying:Boolean(data.is_playing),
+          device:data.device?{id:data.device.id,name:data.device.name}:null
+        };
+      }
+    }
+
     if(!profile?.is_admin)return NextResponse.json({connected:true,current,devices:[],account:null});
+
     const [devicesRes,authResult]=await Promise.all([
       spotifyFetch(sb,"/me/player/devices"),
       sb.from("jukebox_spotify_auth").select("spotify_display_name,spotify_user_id,connected_at").eq("id",1).maybeSingle()
     ]);
     const devicesJson=devicesRes.ok?await devicesRes.json() as any:{devices:[]};
-    return NextResponse.json({connected:true,account:authResult.data??null,devices:(devicesJson.devices??[]).map((d:any)=>({id:d.id,name:d.name,type:d.type,isActive:d.is_active,volume:d.volume_percent})),current});
-  }catch(error){const msg=error instanceof Error?error.message:"UNKNOWN";return NextResponse.json({connected:false,error:msg},{status:msg==="FORBIDDEN"?403:401})}
+    return NextResponse.json({
+      connected:true,
+      account:authResult.data??null,
+      devices:(devicesJson.devices??[]).map((d:any)=>({id:d.id,name:d.name,type:d.type,isActive:d.is_active,volume:d.volume_percent})),
+      current
+    });
+  }catch(error){
+    const msg=error instanceof Error?error.message:"UNKNOWN";
+    return NextResponse.json({connected:false,error:msg},{status:msg==="FORBIDDEN"?403:401});
+  }
 }
 
 export async function POST(request:NextRequest){
@@ -41,5 +72,8 @@ export async function POST(request:NextRequest){
 
     if(!res.ok&&res.status!==204){const text=await res.text();return NextResponse.json({error:text||"Spotify-Aktion fehlgeschlagen."},{status:res.status});}
     return NextResponse.json({ok:true});
-  }catch(error){const msg=error instanceof Error?error.message:"UNKNOWN";return NextResponse.json({error:msg},{status:msg==="FORBIDDEN"?403:401})}
+  }catch(error){
+    const msg=error instanceof Error?error.message:"UNKNOWN";
+    return NextResponse.json({error:msg},{status:msg==="FORBIDDEN"?403:401});
+  }
 }
