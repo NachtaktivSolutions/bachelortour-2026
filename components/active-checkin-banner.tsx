@@ -5,13 +5,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, ChevronRight, MapPin, UserCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useApp } from "@/components/app-provider";
+import { AdminJukeboxCard } from "@/components/admin-jukebox-card";
 
 type CheckinEvent={id:string;title:string;description:string|null;starts_at:string|null;closes_at:string|null;is_open:boolean};
 type Checkin={event_id:string;user_id:string};
 
 export function ActiveCheckinBanner(){
   const {profile}=useApp();
-  const supabase=createClient();
+  const supabase=useMemo(()=>createClient(),[]);
   const [event,setEvent]=useState<CheckinEvent|null>(null);
   const [checkins,setCheckins]=useState<Checkin[]>([]);
   const [memberCount,setMemberCount]=useState(0);
@@ -44,7 +45,7 @@ export function ActiveCheckinBanner(){
     return event;
   },[event,now]);
   const eventCheckins=active?checkins.filter(item=>item.event_id===active.id):[];
-  const checked=Boolean(profile&&eventCheckins.some(item=>item.user_id===profile.id));
+  const checked=Boolean(profile&&active&&eventCheckins.some(item=>item.user_id===profile.id));
   const progress=memberCount?Math.min(100,Math.round(eventCheckins.length/memberCount*100)):0;
 
   async function checkIn(){
@@ -55,10 +56,12 @@ export function ActiveCheckinBanner(){
     setBusy(false);
   }
 
-  if(!active)return null;
-  return <section className="home-checkin-banner">
-    <div className="home-checkin-top"><span className="home-checkin-icon"><UserCheck/></span><div><span className="eyebrow">CHECK-IN JETZT AKTIV</span><h2>{active.title}</h2>{active.description&&<p>{active.description}</p>}</div><Link href="/tour-tools" aria-label="Check-in öffnen"><ChevronRight/></Link></div>
-    <div className="home-checkin-progress"><div><strong>{eventCheckins.length} von {memberCount}</strong><span>bereits eingecheckt</span></div><div className="home-checkin-track"><span style={{width:`${progress}%`}}/></div></div>
-    {checked?<Link className="home-checkin-button checked" href="/tour-tools"><CheckCircle2/>Du bist eingecheckt</Link>:<button className="home-checkin-button" onClick={checkIn} disabled={busy}><MapPin/>{busy?"Wird eingecheckt …":"Jetzt einchecken"}</button>}
-  </section>;
+  return <>
+    <AdminJukeboxCard/>
+    {active&&<section className="home-checkin-banner">
+      <div className="home-checkin-top"><span className="home-checkin-icon"><UserCheck/></span><div><span className="eyebrow">CHECK-IN JETZT AKTIV</span><h2>{active.title}</h2>{active.description&&<p>{active.description}</p>}</div><Link href="/tour-tools" aria-label="Check-in öffnen"><ChevronRight/></Link></div>
+      <div className="home-checkin-progress"><div><strong>{eventCheckins.length} von {memberCount}</strong><span>bereits eingecheckt</span></div><div className="home-checkin-track"><span style={{width:`${progress}%`}}/></div></div>
+      {checked?<Link className="home-checkin-button checked" href="/tour-tools"><CheckCircle2/>Du bist eingecheckt</Link>:<button className="home-checkin-button" onClick={checkIn} disabled={busy}><MapPin/>{busy?"Wird eingecheckt …":"Jetzt einchecken"}</button>}
+    </section>}
+  </>;
 }
