@@ -13,6 +13,7 @@ import { TourRatingCard } from "@/components/tour-rating-card";
 import { SpotifyCard } from "@/components/spotify-card";
 import { AdminJukeboxCard } from "@/components/admin-jukebox-card";
 import { ParticipantJukeboxCard } from "@/components/participant-jukebox-card";
+import { JukeboxErrorBoundary } from "@/components/jukebox-error-boundary";
 import { SoundboardModal } from "@/components/soundboard-modal";
 import { JointInvadersGame } from "@/components/joint-invaders-game";
 import { KnowledgePopup } from "@/components/knowledge-popup";
@@ -38,7 +39,7 @@ export default function HomePage() {
   const hero=event?.hero_image_url||"";const heroStyle=eventLoaded&&hero?{backgroundImage:`linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.95)),url("${hero}")`}:{backgroundImage:"linear-gradient(180deg,#171717,#090909)"};const lat=event?.weather_latitude||48.6778281;const lon=event?.weather_longitude||9.21833;
   return <AuthGate><Shell>{status&&<div className="status floating-status">{status}</div>}
   <section className={`hero premium-hero hero-v10 ${eventLoaded?"hero-ready":"hero-loading"}`} style={heroStyle}><div className="hero-fire-glow"/><div className="hero-overlay"><span className="eyebrow">DER COUNTDOWN LÄUFT</span><h1>{eventLoaded?(event?.title||"Bachelortour 2026"):"Firestarter 2026"}</h1><p>{eventLoaded?(event?.subtitle||`Willkommen, ${profile?.name?.split(" ")[0]??"Bachelor"} – das wird legendär.`):"Tour wird geladen …"}</p>{eventLoaded&&<><Countdown startsAt={event?.starts_at}/><div className="hero-actions"><LocationSharing/></div></>}</div></section>
-  {profile?.is_admin?<AdminJukeboxCard/>:<ParticipantJukeboxCard/>}
+  <JukeboxErrorBoundary>{profile?.is_admin?<AdminJukeboxCard/>:<ParticipantJukeboxCard/>}</JukeboxErrorBoundary>
   <ActiveCheckinBanner/>
   <section className="quick-stats quick-stats-v10 quick-stats-four compact-four"><button className="bachelor-game-trigger" onClick={tapBachelor}><Users/><strong>{memberCount}</strong><span>Bachelor</span></button><Link href="/gallery"><Images/><strong>{photos.length}</strong><span>Fotos</span></Link><Link href="/chat"><MessageCircle/><strong>Live</strong><span>Chat</span></Link><button className="sound-stat" onClick={()=>setSoundboardOpen(true)} aria-label="Tour-Medien öffnen"><Film/><strong><Film aria-hidden="true"/></strong><span>Medien</span></button></section>
   {hotels.length>0&&<section className="released-hotels" id="hotels" style={{scrollMarginTop:"140px"}}><div className="section-title"><Building2 size={20}/><h2>Unser Hotel</h2></div><div className="hotel-strip">{hotels.map(hotel=><div key={hotel.id}><article className="hotel-card" id={`hotel-${hotel.id}`} style={{scrollMarginTop:"140px"}}><div><span className="eyebrow">UNTERKUNFT</span><h3>{hotel.name}</h3>{hotel.description&&<p>{hotel.description}</p>}<small>{hotel.address}</small></div><a className="round-action compact-round-action" aria-label={`Navigation zu ${hotel.name}`} target="_blank" rel="noreferrer" href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(hotel.address)}`}><Navigation/></a></article><HotelRoomCard hotelId={hotel.id} hotelName={hotel.name}/></div>)}</div></section>}
