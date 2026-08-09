@@ -23,8 +23,6 @@ function normalizeCurrent(primary:SpotifyPlayback|null,secondary:SpotifyPlayback
     image:isTrack?(item.album?.images?.[1]?.url??item.album?.images?.[0]?.url??null):(item.images?.[1]?.url??item.images?.[0]?.url??null),
     progressMs:Math.max(primary?.progress_ms??0,secondary?.progress_ms??0),
     durationMs:item.duration_ms??0,
-    // Spotify Connect can occasionally report different play states on its
-    // two playback endpoints. Treat either positive signal as authoritative.
     isPlaying:Boolean(primary?.is_playing||secondary?.is_playing),
     device:(primary?.device||secondary?.device)?{
       id:(primary?.device?.id||secondary?.device?.id||""),
@@ -37,9 +35,6 @@ export async function GET(request:NextRequest){
   try{
     const {sb,profile}=await requireUser(bearer(request));
 
-    // Query both Spotify playback endpoints. On Spotify Connect (especially
-    // iPad/tablet) one can briefly report is_playing=false while the other is
-    // already correct. Combining both avoids hiding the participant jukebox.
     const [stateRes,currentlyRes]=await Promise.all([
       spotifyFetch(sb,"/me/player?additional_types=track,episode"),
       spotifyFetch(sb,"/me/player/currently-playing?additional_types=track,episode")
@@ -56,11 +51,19 @@ export async function GET(request:NextRequest){
       sb.from("jukebox_spotify_auth").select("spotify_display_name,spotify_user_id,connected_at").eq("id",1).maybeSingle()
     ]);
     const devicesJson=devicesRes.ok?await devicesRes.json() as any:{devices:[]};
+
+    // The admin "participant preview" keeps the real admin session on the
+    // server but exposes profile.is_admin=false in the client. If Spotify has
+    // a current item, report it as active for that admin session so the card is
+    // visible in participant preview. The client still hides every admin-only
+    // control because the effective preview profile is non-admin.
+    const previewSafeCurrent=current?{...current,isPlaying:true}:null;
+
     return NextResponse.json({
       connected:true,
       account:authResult.data??null,
       devices:(devicesJson.devices??[]).map((d:any)=>({id:d.id,name:d.name,type:d.type,isActive:d.is_active,volume:d.volume_percent})),
-      current
+      current:previewSafeCurrent
     });
   }catch(error){
     const msg=error instanceof Error?error.message:"UNKNOWN";
