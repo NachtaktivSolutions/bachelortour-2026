@@ -8,6 +8,11 @@ import { useApp } from "./app-provider";
 
 type RatingRow={id:string;user_id:string;rating:number;hour_bucket:string;created_at:string};
 
+function formatAverage(value:number){
+  const decimals=Math.abs(value)>0&&Math.abs(value)<0.1?2:1;
+  return value.toLocaleString("de-DE",{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
+}
+
 export function TourRatingCard(){
   const {profile}=useApp();
   const supabase=createClient();
@@ -26,6 +31,7 @@ export function TourRatingCard(){
   useEffect(()=>{setMounted(true);load();const channel=supabase.channel("tour-ratings-live").on("postgres_changes",{event:"*",schema:"public",table:"tour_ratings"},load).subscribe();return()=>{supabase.removeChannel(channel)}},[load,supabase]);
 
   const average=useMemo(()=>ratings.length?ratings.reduce((sum,item)=>sum+item.rating,0)/ratings.length:0,[ratings]);
+  const averageLabel=ratings.length?formatAverage(average):"0,0";
   const fill=Math.max(0,Math.min(100,(average+5)*10));
   const hourKey=new Date();hourKey.setMinutes(0,0,0);
   const alreadyRated=ratings.some(item=>item.user_id===profile?.id&&new Date(item.hour_bucket).getTime()===hourKey.getTime());
@@ -46,9 +52,9 @@ export function TourRatingCard(){
     setSaving(false);
   }
 
-  const modal=open&&mounted?createPortal(<div className="tour-rating-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setOpen(false)}}><section className="tour-rating-modal" role="dialog" aria-modal="true" aria-label="Tour bewerten"><button className="tour-rating-close" onClick={()=>setOpen(false)} aria-label="Schließen"><X/></button><span className="eyebrow">STIMMUNGSBAROMETER</span><h2>Wie läuft die Tour?</h2><p>Du kannst einmal pro Stunde eine Bewertung von −5 bis +5 abgeben.</p><div className="tour-rating-big-leaf"><RatingLeaf fill={fill}/><strong>{average.toFixed(1)}</strong><small>Durchschnitt · {ratings.length} Bewertungen</small></div><div className="rating-scale">{Array.from({length:11},(_,i)=>i-5).map(value=><button key={value} className={selected===value?"active":""} onClick={()=>setSelected(value)}><b>{value>0?`+${value}`:value}</b></button>)}</div><div className="rating-scale-labels"><span>Katastrophe</span><span>Legendär</span></div><button className="primary-button rating-submit" disabled={alreadyRated||saving} onClick={submit}>{alreadyRated?"Diese Stunde bereits bewertet":saving?"Speichert …":"Bewertung abgeben"}</button>{profile?.is_admin&&<button className="secondary-button rating-reset" disabled={saving} onClick={reset}><RotateCcw/> Bewertung auf 0 setzen</button>}{message&&<div className="status">{message}</div>}</section></div>,document.body):null;
+  const modal=open&&mounted?createPortal(<div className="tour-rating-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setOpen(false)}}><section className="tour-rating-modal" role="dialog" aria-modal="true" aria-label="Tour bewerten"><button className="tour-rating-close" onClick={()=>setOpen(false)} aria-label="Schließen"><X/></button><span className="eyebrow">STIMMUNGSBAROMETER</span><h2>Wie läuft die Tour?</h2><p>Du kannst einmal pro Stunde eine Bewertung von −5 bis +5 abgeben.</p><div className="tour-rating-big-leaf"><RatingLeaf fill={fill}/><strong>{averageLabel}</strong><small>Durchschnitt · {ratings.length} {ratings.length===1?"Bewertung":"Bewertungen"}</small></div><div className="rating-scale">{Array.from({length:11},(_,i)=>i-5).map(value=><button key={value} className={selected===value?"active":""} onClick={()=>setSelected(value)}><b>{value>0?`+${value}`:value}</b></button>)}</div><div className="rating-scale-labels"><span>Katastrophe</span><span>Legendär</span></div><button className="primary-button rating-submit" disabled={alreadyRated||saving} onClick={submit}>{alreadyRated?"Diese Stunde bereits bewertet":saving?"Speichert …":"Bewertung abgeben"}</button>{profile?.is_admin&&<button className="secondary-button rating-reset" disabled={saving} onClick={reset}><RotateCcw/> Bewertung auf 0 setzen</button>}{message&&<div className="status">{message}</div>}</section></div>,document.body):null;
 
-  return <><button className="tour-rating-card" onClick={()=>setOpen(true)}><div className="rating-card-copy"><span className="eyebrow">TOURBEWERTUNG</span><strong>{ratings.length?average.toFixed(1):"0.0"}</strong><small>{alreadyRated?"Nächste Bewertung zur vollen Stunde":"Jetzt bewerten"}</small></div><div className="rating-card-leaf"><RatingLeaf fill={fill}/></div></button>{modal}</>;
+  return <><button className="tour-rating-card" onClick={()=>setOpen(true)}><div className="rating-card-copy"><span className="eyebrow">TOURBEWERTUNG</span><strong>{averageLabel}</strong><small>{ratings.length} {ratings.length===1?"Bewertung":"Bewertungen"}{alreadyRated?" · wieder zur vollen Stunde":" · jetzt bewerten"}</small></div><div className="rating-card-leaf"><RatingLeaf fill={fill}/></div></button>{modal}</>;
 }
 
 function RatingLeaf({fill}:{fill:number}){
