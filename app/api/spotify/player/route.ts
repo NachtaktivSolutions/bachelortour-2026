@@ -3,32 +3,49 @@ import { requireAdmin, requireUser, spotifyFetch } from "@/lib/spotify-server";
 
 function bearer(request:NextRequest){return request.headers.get("authorization")?.replace(/^Bearer\s+/i,"")||""}
 
+function mapCurrent(data:any){
+  const item=data?.item;
+  if(!item)return null;
+  const isTrack=item.type==="track";
+  return {
+    id:item.id,
+    uri:item.uri,
+    title:item.name,
+    artist:isTrack?(item.artists??[]).map((a:any)=>a.name).join(", "):(item.show?.name??"Spotify"),
+    image:isTrack?(item.album?.images?.[1]?.url??item.album?.images?.[0]?.url??null):(item.images?.[1]?.url??item.images?.[0]?.url??null),
+    progressMs:data.progress_ms??0,
+    durationMs:item.duration_ms??0,
+    isPlaying:Boolean(data.is_playing),
+    device:data.device?{id:data.device.id,name:data.device.name}:null
+  };
+}
+
 export async function GET(request:NextRequest){
   try{
     const {sb,profile}=await requireUser(bearer(request));
 
-    // Use the full playback-state endpoint instead of currently-playing.
-    // It is the authoritative source for active device + is_playing and is
-    // more reliable for Spotify Connect devices (especially iPad/tablet).
-    const stateRes=await spotifyFetch(sb,"/me/player?additional_types=track,episode");
-    let current=null;
-    if(stateRes.status!==204&&stateRes.ok){
-      const data=await stateRes.json() as any;
-      const item=data?.item;
-      if(item){
-        const isTrack=item.type==="track";
-        current={
-          id:item.id,
-          uri:item.uri,
-          title:item.name,
-          artist:isTrack?(item.artists??[]).map((a:any)=>a.name).join(", "):(item.show?.name??"Spotify"),
-          image:isTrack?(item.album?.images?.[1]?.url??item.album?.images?.[0]?.url??null):(item.images?.[1]?.url??item.images?.[0]?.url??null),
-          progressMs:data.progress_ms??0,
-          durationMs:item.duration_ms??0,
-          isPlaying:Boolean(data.is_playing),
-          device:data.device?{id:data.device.id,name:data.device.name}:null
-        };
-      }
+    // Spotify Connect can occasionally return an incomplete state from one of
+    // the two player endpoints. Query both and prefer a response that explicitly
+    // reports active playback. This avoids hiding the participant jukebox while
+    // the selected iPad is in fact playing.
+    const [stateRes,currentlyRes]=await Promise.all([
+      spotifyFetch(sb,"/me/player?additional_types=track,episode"),
+      spotifyFetch(sb,"/me/player/currently-playing?additional_types=track,episode")
+    ]);
+
+    let stateData:any=null;
+    let currentlyData:any=null;
+    if(stateRes.status!==204&&stateRes.ok)stateData=await stateRes.json();
+    if(currentlyRes.status!==204&&currentlyRes.ok)currentlyData=await currentlyRes.json();
+
+    const stateCurrent=mapCurrent(stateData);
+    const currentlyCurrent=mapCurrent(currentlyData);
+    let current=currentlyCurrent?.isPlaying?currentlyCurrent:stateCurrent?.isPlaying?stateCurrent:(currentlyCurrent??stateCurrent);
+
+    // If the endpoints disagree, an explicit positive playback signal wins.
+    if(current){
+      current={...current,isPlaying:Boolean(currentlyData?.is_playing||stateData?.is_playing)};
+      if(!current.device&&stateData?.device)current.device={id:stateData.device.id,name:stateData.device.name};
     }
 
     if(!profile?.is_admin)return NextResponse.json({connected:true,current,devices:[],account:null});
