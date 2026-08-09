@@ -1,20 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin, spotifyFetch } from "@/lib/spotify-server";
+import { requireAdmin, requireUser, spotifyFetch } from "@/lib/spotify-server";
 
 function bearer(request:NextRequest){return request.headers.get("authorization")?.replace(/^Bearer\s+/i,"")||""}
 
 export async function GET(request:NextRequest){
   try{
-    const {sb}=await requireAdmin(bearer(request));
-    const [devicesRes,currentRes,authResult]=await Promise.all([
-      spotifyFetch(sb,"/me/player/devices"),
-      spotifyFetch(sb,"/me/player/currently-playing"),
-      sb.from("jukebox_spotify_auth").select("spotify_display_name,spotify_user_id,connected_at").eq("id",1).maybeSingle()
-    ]);
-    if(!devicesRes.ok)return NextResponse.json({connected:false,error:"Spotify nicht verbunden oder Zugriff abgelaufen."},{status:401});
-    const devicesJson=await devicesRes.json() as any;
+    const {sb,profile}=await requireUser(bearer(request));
+    const currentRes=await spotifyFetch(sb,"/me/player/currently-playing");
     let current=null;
     if(currentRes.status!==204&&currentRes.ok){const data=await currentRes.json() as any;current=data?.item?{id:data.item.id,uri:data.item.uri,title:data.item.name,artist:(data.item.artists??[]).map((a:any)=>a.name).join(", "),image:data.item.album?.images?.[1]?.url??data.item.album?.images?.[0]?.url??null,progressMs:data.progress_ms??0,durationMs:data.item.duration_ms??0,isPlaying:Boolean(data.is_playing),device:data.device?{id:data.device.id,name:data.device.name}:null}:null}
+    if(!profile?.is_admin)return NextResponse.json({connected:true,current,devices:[],account:null});
+    const [devicesRes,authResult]=await Promise.all([
+      spotifyFetch(sb,"/me/player/devices"),
+      sb.from("jukebox_spotify_auth").select("spotify_display_name,spotify_user_id,connected_at").eq("id",1).maybeSingle()
+    ]);
+    const devicesJson=devicesRes.ok?await devicesRes.json() as any:{devices:[]};
     return NextResponse.json({connected:true,account:authResult.data??null,devices:(devicesJson.devices??[]).map((d:any)=>({id:d.id,name:d.name,type:d.type,isActive:d.is_active,volume:d.volume_percent})),current});
   }catch(error){const msg=error instanceof Error?error.message:"UNKNOWN";return NextResponse.json({connected:false,error:msg},{status:msg==="FORBIDDEN"?403:401})}
 }
@@ -26,8 +26,6 @@ export async function POST(request:NextRequest){
     let res:Response;
 
     if(body.action==="play"&&body.uri){
-      // Preserve the user's current Spotify playlist/context: insert the requested
-      // track into Spotify's playback queue and immediately advance to it.
       const queueDevice=body.deviceId?`&device_id=${encodeURIComponent(body.deviceId)}`:"";
       const queued=await spotifyFetch(sb,`/me/player/queue?uri=${encodeURIComponent(body.uri)}${queueDevice}`,{method:"POST"});
       if(!queued.ok&&queued.status!==204){const text=await queued.text();return NextResponse.json({error:text||"Song konnte nicht in die Spotify-Warteschlange gelegt werden."},{status:queued.status});}
